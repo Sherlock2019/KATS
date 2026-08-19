@@ -39,7 +39,7 @@
         error_signature_raw: 'No port found in network None with IP address 169.254.169.254'
       },
       fields: {
-        ticketNumber: 'DEMO-001', state: 'In Progress', priority: '1', escalation: 'L2',
+        ticketNumber: 'HNB-HN-0001', state: 'In Progress', priority: '1', escalation: 'L2',
         ticketOwner: 'Bob Builder', supportLevel: 'L2',
         customerId: 'hn-bank', company: 'core-banking / proj-rocket',
         contactName: 'Linh Tran', contactDetails: 'linh.tran@hnbank.vn / +84-903-112-244 / Teams',
@@ -203,7 +203,7 @@
         error_signature_raw: 'ovn-northd Raft leader election; port binding timed out after 300 seconds'
       },
       fields: {
-        ticketNumber: 'DEMO-002', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'HNB-HN-0002', state: 'In Progress', priority: '1', escalation: 'L3',
         ticketOwner: 'Grace Git', supportLevel: 'L3',
         customerId: 'hn-bank', company: 'core-banking / security-uplift',
         contactName: 'Minh Vu', contactDetails: 'minh.vu@hnbank.vn / +84-908-773-901 / Teams',
@@ -339,7 +339,7 @@
         error_signature_raw: 'security group rule added but traffic still blocked'
       },
       fields: {
-        ticketNumber: 'DEMO-003', state: 'In Progress', priority: '3', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0003', state: 'In Progress', priority: '3', escalation: 'none',
         ticketOwner: 'Charlie Checker', supportLevel: 'L1',
         customerId: 'hcmc-commerce', company: 'storefront / web-tier',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
@@ -472,7 +472,7 @@
         error_signature_raw: 'HEALTH_WARN pool nearfull POOL_NEAR_FULL ENOSPC creating volume'
       },
       fields: {
-        ticketNumber: 'DEMO-004', state: 'In Progress', priority: '1', escalation: 'L2',
+        ticketNumber: 'DC1S-DC1-0004', state: 'In Progress', priority: '1', escalation: 'L2',
         ticketOwner: 'Heidi Hash', supportLevel: 'L2',
         customerId: 'dc1-shared', company: 'analytics-platform / spark-cluster',
         contactName: 'Hoa Pham', contactDetails: 'hoa.pham@dc1shared.vn / +84-905-224-118 / Slack #dc1-storage',
@@ -607,7 +607,7 @@
         error_signature_raw: '401 Unauthorized token revoked'
       },
       fields: {
-        ticketNumber: 'DEMO-005', state: 'In Progress', priority: '2', escalation: 'L2',
+        ticketNumber: 'DC1S-DC1-0005', state: 'In Progress', priority: '2', escalation: 'L2',
         ticketOwner: 'Alice Verify', supportLevel: 'L2',
         customerId: 'dc1-shared', company: 'analytics-platform / ci-pipeline',
         contactName: 'Hoa Pham', contactDetails: 'hoa.pham@dc1shared.vn / +84-905-224-118 / Slack',
@@ -742,7 +742,7 @@
         error_signature_raw: 'DHCPDISCOVER no address available lease allocation failed'
       },
       fields: {
-        ticketNumber: 'DEMO-006', state: 'In Progress', priority: '2', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0006', state: 'In Progress', priority: '2', escalation: 'none',
         ticketOwner: 'Dave Debugger', supportLevel: 'L2',
         customerId: 'hcmc-commerce', company: 'storefront / app-tier',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
@@ -877,7 +877,7 @@
         error_signature_raw: 'MessagingTimeout: Timed out waiting for a reply to message ID'
       },
       fields: {
-        ticketNumber: 'DEMO-007', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'HNB-HN-0007', state: 'In Progress', priority: '1', escalation: 'L3',
         ticketOwner: 'Frank Fixer', supportLevel: 'L3',
         customerId: 'hn-bank', company: 'core-banking / capacity-expansion',
         contactName: 'Minh Vu', contactDetails: 'minh.vu@hnbank.vn / +84-908-773-901 / Teams',
@@ -1012,7 +1012,7 @@
         error_signature_raw: 'ping statistics packet loss TCP retransmits elevated'
       },
       fields: {
-        ticketNumber: 'DEMO-008', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'MSC-HN-0008', state: 'In Progress', priority: '1', escalation: 'L3',
         ticketOwner: 'Frank Fixer', supportLevel: 'SRE',
         customerId: 'multisite', company: 'dr-platform / cross-site-replication',
         contactName: 'Duc Hoang', contactDetails: 'duc.hoang@multisite.vn / +84-902-889-771 / Teams',
@@ -1147,7 +1147,7 @@
         error_signature_raw: 'listener stuck in PENDING_UPDATE provisioning_status'
       },
       fields: {
-        ticketNumber: 'DEMO-009', state: 'In Progress', priority: '2', escalation: 'none',
+        ticketNumber: 'DC2S-DC2-0009', state: 'In Progress', priority: '2', escalation: 'none',
         ticketOwner: 'Eve Eventloop', supportLevel: 'L2',
         customerId: 'dc2-shared', company: 'batch-platform / ingest-lb',
         contactName: 'Tuan Le', contactDetails: 'tuan.le@dc2shared.vn / +84-907-441-662 / Email',
@@ -1283,7 +1283,7 @@
         error_signature_raw: 'Internal Server Error /auth/websso/'
       },
       fields: {
-        ticketNumber: 'DEMO-010', state: 'In Progress', priority: '3', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0010', state: 'In Progress', priority: '3', escalation: 'none',
         ticketOwner: 'Judy Java', supportLevel: 'L2',
         customerId: 'hcmc-commerce', company: 'storefront / platform-access',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',

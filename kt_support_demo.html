@@ -992,28 +992,28 @@
    * Customers — controlled entity, replaces the free-text `company` field.
    * ------------------------------------------------------------------- */
   const CUSTOMERS = [
-    { customer_id: 'hn-bank', name: 'HN-Bank Core Cloud', tier: 'Gold',
+    { customer_id: 'hn-bank', code: 'HNB', name: 'HN-Bank Core Cloud', tier: 'Gold',
       sla_response_mins: 15, sla_resolve_mins: 240,
       sites: ['HN', 'HCMC'], environments: ['production', 'staging'],
       components: ['neutron-ovn', 'nova-metadata', 'rabbitmq', 'nova-compute'],
       contacts: [{ name: 'Linh Tran', role: 'Platform Lead', channel: 'Teams' },
                  { name: 'Minh Vu', role: 'NOC Duty', channel: 'Phone' }] },
-    { customer_id: 'hcmc-commerce', name: 'HCMC-Commerce Cloud', tier: 'Silver',
+    { customer_id: 'hcmc-commerce', code: 'HCC', name: 'HCMC-Commerce Cloud', tier: 'Silver',
       sla_response_mins: 30, sla_resolve_mins: 480,
       sites: ['HCMC'], environments: ['production', 'staging'],
       components: ['keystone', 'horizon', 'neutron-dhcp'],
       contacts: [{ name: 'Anh Nguyen', role: 'Cloud Admin', channel: 'Email' }] },
-    { customer_id: 'dc1-shared', name: 'DC1-Shared Cloud', tier: 'Gold',
+    { customer_id: 'dc1-shared', code: 'DC1S', name: 'DC1-Shared Cloud', tier: 'Gold',
       sla_response_mins: 15, sla_resolve_mins: 240,
       sites: ['DC1'], environments: ['production'],
       components: ['ceph', 'cinder', 'nova-compute', 'keystone'],
       contacts: [{ name: 'Hoa Pham', role: 'Storage Lead', channel: 'Slack' }] },
-    { customer_id: 'dc2-shared', name: 'DC2-Shared Cloud', tier: 'Bronze',
+    { customer_id: 'dc2-shared', code: 'DC2S', name: 'DC2-Shared Cloud', tier: 'Bronze',
       sla_response_mins: 60, sla_resolve_mins: 960,
       sites: ['DC2'], environments: ['production'],
       components: ['cinder', 'ceph', 'controller-os'],
       contacts: [{ name: 'Tuan Le', role: 'Ops Engineer', channel: 'Email' }] },
-    { customer_id: 'multisite', name: 'Multi-site Cloud', tier: 'Platinum',
+    { customer_id: 'multisite', code: 'MSC', name: 'Multi-site Cloud', tier: 'Platinum',
       sla_response_mins: 10, sla_resolve_mins: 120,
       sites: ['HN', 'HCMC', 'DC1', 'DC2'], environments: ['production'],
       components: ['wan-network', 'mysql-galera', 'neutron-ovn'],
@@ -2770,7 +2770,7 @@
         error_signature_raw: 'No port found in network None with IP address 169.254.169.254'
       },
       fields: {
-        ticketNumber: 'DEMO-001', state: 'In Progress', priority: '1', escalation: 'L2',
+        ticketNumber: 'HNB-HN-0001', state: 'In Progress', priority: '1', escalation: 'L2',
         ticketOwner: 'Bob Builder', supportLevel: 'L2',
         customerId: 'hn-bank', company: 'core-banking / proj-rocket',
         contactName: 'Linh Tran', contactDetails: 'linh.tran@hnbank.vn / +84-903-112-244 / Teams',
@@ -2934,7 +2934,7 @@
         error_signature_raw: 'ovn-northd Raft leader election; port binding timed out after 300 seconds'
       },
       fields: {
-        ticketNumber: 'DEMO-002', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'HNB-HN-0002', state: 'In Progress', priority: '1', escalation: 'L3',
         ticketOwner: 'Grace Git', supportLevel: 'L3',
         customerId: 'hn-bank', company: 'core-banking / security-uplift',
         contactName: 'Minh Vu', contactDetails: 'minh.vu@hnbank.vn / +84-908-773-901 / Teams',
@@ -3070,7 +3070,7 @@
         error_signature_raw: 'security group rule added but traffic still blocked'
       },
       fields: {
-        ticketNumber: 'DEMO-003', state: 'In Progress', priority: '3', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0003', state: 'In Progress', priority: '3', escalation: 'none',
         ticketOwner: 'Charlie Checker', supportLevel: 'L1',
         customerId: 'hcmc-commerce', company: 'storefront / web-tier',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
@@ -3203,7 +3203,7 @@
         error_signature_raw: 'HEALTH_WARN pool nearfull POOL_NEAR_FULL ENOSPC creating volume'
       },
       fields: {
-        ticketNumber: 'DEMO-004', state: 'In Progress', priority: '1', escalation: 'L2',
+        ticketNumber: 'DC1S-DC1-0004', state: 'In Progress', priority: '1', escalation: 'L2',
         ticketOwner: 'Heidi Hash', supportLevel: 'L2',
         customerId: 'dc1-shared', company: 'analytics-platform / spark-cluster',
         contactName: 'Hoa Pham', contactDetails: 'hoa.pham@dc1shared.vn / +84-905-224-118 / Slack #dc1-storage',
@@ -3338,7 +3338,7 @@
         error_signature_raw: '401 Unauthorized token revoked'
       },
       fields: {
-        ticketNumber: 'DEMO-005', state: 'In Progress', priority: '2', escalation: 'L2',
+        ticketNumber: 'DC1S-DC1-0005', state: 'In Progress', priority: '2', escalation: 'L2',
         ticketOwner: 'Alice Verify', supportLevel: 'L2',
         customerId: 'dc1-shared', company: 'analytics-platform / ci-pipeline',
         contactName: 'Hoa Pham', contactDetails: 'hoa.pham@dc1shared.vn / +84-905-224-118 / Slack',
@@ -3473,7 +3473,7 @@
         error_signature_raw: 'DHCPDISCOVER no address available lease allocation failed'
       },
       fields: {
-        ticketNumber: 'DEMO-006', state: 'In Progress', priority: '2', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0006', state: 'In Progress', priority: '2', escalation: 'none',
         ticketOwner: 'Dave Debugger', supportLevel: 'L2',
         customerId: 'hcmc-commerce', company: 'storefront / app-tier',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
@@ -3608,7 +3608,7 @@
         error_signature_raw: 'MessagingTimeout: Timed out waiting for a reply to message ID'
       },
       fields: {
-        ticketNumber: 'DEMO-007', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'HNB-HN-0007', state: 'In Progress', priority: '1', escalation: 'L3',
         ticketOwner: 'Frank Fixer', supportLevel: 'L3',
         customerId: 'hn-bank', company: 'core-banking / capacity-expansion',
         contactName: 'Minh Vu', contactDetails: 'minh.vu@hnbank.vn / +84-908-773-901 / Teams',
@@ -3743,7 +3743,7 @@
         error_signature_raw: 'ping statistics packet loss TCP retransmits elevated'
       },
       fields: {
-        ticketNumber: 'DEMO-008', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'MSC-HN-0008', state: 'In Progress', priority: '1', escalation: 'L3',
         ticketOwner: 'Frank Fixer', supportLevel: 'SRE',
         customerId: 'multisite', company: 'dr-platform / cross-site-replication',
         contactName: 'Duc Hoang', contactDetails: 'duc.hoang@multisite.vn / +84-902-889-771 / Teams',
@@ -3878,7 +3878,7 @@
         error_signature_raw: 'listener stuck in PENDING_UPDATE provisioning_status'
       },
       fields: {
-        ticketNumber: 'DEMO-009', state: 'In Progress', priority: '2', escalation: 'none',
+        ticketNumber: 'DC2S-DC2-0009', state: 'In Progress', priority: '2', escalation: 'none',
         ticketOwner: 'Eve Eventloop', supportLevel: 'L2',
         customerId: 'dc2-shared', company: 'batch-platform / ingest-lb',
         contactName: 'Tuan Le', contactDetails: 'tuan.le@dc2shared.vn / +84-907-441-662 / Email',
@@ -4014,7 +4014,7 @@
         error_signature_raw: 'Internal Server Error /auth/websso/'
       },
       fields: {
-        ticketNumber: 'DEMO-010', state: 'In Progress', priority: '3', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0010', state: 'In Progress', priority: '3', escalation: 'none',
         ticketOwner: 'Judy Java', supportLevel: 'L2',
         customerId: 'hcmc-commerce', company: 'storefront / platform-access',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
@@ -4682,8 +4682,6 @@
                     onchange="loadTicketIntoForm(this.value)">
               <option value="">-- Select demo ticket --</option>
             </select>
-            <label class="form-label mb-1 mt-1">Ticket # <span class="badge bg-primary" id="priorityBadge">P3</span></label>
-            <input class="form-control" id="ticketNumber" name="ticketNumber" value="INC0010045">
           </div>
           <div class="col-md-2">
             <label class="form-label">Status</label>
@@ -4759,6 +4757,12 @@
             </label>
             <select class="form-select" id="customerId" name="customerId" onchange="onCustomerChange()"></select>
             <div class="ai-note" id="customerHealth">—</div>
+
+            <label class="form-label mb-1 mt-2">
+              Ticket # <span class="badge bg-primary" id="priorityBadge">P3</span>
+              <span class="ai-note">— auto: customer-location-number</span>
+            </label>
+            <input class="form-control" id="ticketNumber" name="ticketNumber" readonly>
           </div>
           <div class="col-md-4 mb-2">
             <label class="form-label mb-1">Project / Tenant (free text)</label>
@@ -4932,7 +4936,8 @@
           </div>
           <div class="col-md-3 mb-2">
             <label class="form-label mb-1">Primary Site / Region</label>
-            <input class="form-control" id="site" name="site" placeholder="HN, HCMC, DC1">
+            <input class="form-control" id="site" name="site" placeholder="HN, HCMC, DC1"
+                   oninput="refreshTicketNumber()">
           </div>
           <div class="col-md-3 mb-2">
             <label class="form-label mb-1">Node ID / Host</label>
@@ -6233,7 +6238,8 @@
     const ticket = prefilledTickets.find(t => t.id === id);
     if (!ticket) return;
 
-    $('ticketNumber').value = ticket.id;
+    ticketNumberAuto = false;
+    $('ticketNumber').value = ticket.fields.ticketNumber || ticket.id;
 
     Object.keys(ticket.fields || {}).forEach(fid => {
       const el = $(fid);
@@ -7663,6 +7669,7 @@
   }
 
   function onCustomerChange() {
+    refreshTicketNumber();
     const id = val('customerId');
     const box = $('customerHealth');
     if (!id) { box.textContent = '—'; return; }
@@ -7893,11 +7900,31 @@
   /* ================================================================== */
   /* NEW ticket                                                          */
   /* ================================================================== */
-  function nextTicketNumber() {
+  /* Ticket numbers read as CUSTOMER-LOCATION-NUMBER, e.g. HNB-HN-0042.
+     The sequence is allocated once per new ticket; changing the customer or
+     the site rebuilds the prefix around that same number rather than
+     burning a new one. A loaded demo ticket keeps its own number. */
+  let ticketSeq = null;
+  let ticketNumberAuto = true;
+
+  function nextTicketSeq() {
     let seq = 1;
     try { seq = (parseInt(localStorage.getItem('kt_ticket_seq') || '0', 10) || 0) + 1; } catch (e) {}
     try { localStorage.setItem('kt_ticket_seq', String(seq)); } catch (e) {}
-    return 'INC' + String(10100 + seq).padStart(7, '0');
+    return seq;
+  }
+
+  function buildTicketNumber() {
+    const c = (typeof Customers !== 'undefined') ? Customers.byId(val('customerId')) : null;
+    const code = (c && c.code) ? c.code : 'NEW';
+    const loc = (val('site') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'XX';
+    if (ticketSeq == null) ticketSeq = nextTicketSeq();
+    return code + '-' + loc + '-' + String(ticketSeq).padStart(4, '0');
+  }
+
+  function refreshTicketNumber() {
+    if (!ticketNumberAuto) return;
+    $('ticketNumber').value = buildTicketNumber();
   }
 
   function newTicket() {
@@ -7911,7 +7938,9 @@
     });
 
     // sensible defaults for a fresh intake
-    $('ticketNumber').value = nextTicketNumber();
+    ticketSeq = null;
+    ticketNumberAuto = true;
+    refreshTicketNumber();
     $('state').value = 'New';
     $('priority').value = '3';
     $('escalation').value = 'none';
@@ -8528,6 +8557,7 @@
 
     initTheme();
     initVocab();
+    ticketSeq = null;
     initEntityDropdowns();
     initTicketDropdowns();
     addABBlock();

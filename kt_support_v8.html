@@ -553,8 +553,6 @@
                     onchange="loadTicketIntoForm(this.value)">
               <option value="">-- Select demo ticket --</option>
             </select>
-            <label class="form-label mb-1 mt-1">Ticket # <span class="badge bg-primary" id="priorityBadge">P3</span></label>
-            <input class="form-control" id="ticketNumber" name="ticketNumber" value="INC0010045">
           </div>
           <div class="col-md-2">
             <label class="form-label">Status</label>
@@ -630,6 +628,12 @@
             </label>
             <select class="form-select" id="customerId" name="customerId" onchange="onCustomerChange()"></select>
             <div class="ai-note" id="customerHealth">—</div>
+
+            <label class="form-label mb-1 mt-2">
+              Ticket # <span class="badge bg-primary" id="priorityBadge">P3</span>
+              <span class="ai-note">— auto: customer-location-number</span>
+            </label>
+            <input class="form-control" id="ticketNumber" name="ticketNumber" readonly>
           </div>
           <div class="col-md-4 mb-2">
             <label class="form-label mb-1">Project / Tenant (free text)</label>
@@ -803,7 +807,8 @@
           </div>
           <div class="col-md-3 mb-2">
             <label class="form-label mb-1">Primary Site / Region</label>
-            <input class="form-control" id="site" name="site" placeholder="HN, HCMC, DC1">
+            <input class="form-control" id="site" name="site" placeholder="HN, HCMC, DC1"
+                   oninput="refreshTicketNumber()">
           </div>
           <div class="col-md-3 mb-2">
             <label class="form-label mb-1">Node ID / Host</label>
@@ -2104,7 +2109,8 @@
     const ticket = prefilledTickets.find(t => t.id === id);
     if (!ticket) return;
 
-    $('ticketNumber').value = ticket.id;
+    ticketNumberAuto = false;
+    $('ticketNumber').value = ticket.fields.ticketNumber || ticket.id;
 
     Object.keys(ticket.fields || {}).forEach(fid => {
       const el = $(fid);
@@ -3534,6 +3540,7 @@
   }
 
   function onCustomerChange() {
+    refreshTicketNumber();
     const id = val('customerId');
     const box = $('customerHealth');
     if (!id) { box.textContent = '—'; return; }
@@ -3764,11 +3771,31 @@
   /* ================================================================== */
   /* NEW ticket                                                          */
   /* ================================================================== */
-  function nextTicketNumber() {
+  /* Ticket numbers read as CUSTOMER-LOCATION-NUMBER, e.g. HNB-HN-0042.
+     The sequence is allocated once per new ticket; changing the customer or
+     the site rebuilds the prefix around that same number rather than
+     burning a new one. A loaded demo ticket keeps its own number. */
+  let ticketSeq = null;
+  let ticketNumberAuto = true;
+
+  function nextTicketSeq() {
     let seq = 1;
     try { seq = (parseInt(localStorage.getItem('kt_ticket_seq') || '0', 10) || 0) + 1; } catch (e) {}
     try { localStorage.setItem('kt_ticket_seq', String(seq)); } catch (e) {}
-    return 'INC' + String(10100 + seq).padStart(7, '0');
+    return seq;
+  }
+
+  function buildTicketNumber() {
+    const c = (typeof Customers !== 'undefined') ? Customers.byId(val('customerId')) : null;
+    const code = (c && c.code) ? c.code : 'NEW';
+    const loc = (val('site') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'XX';
+    if (ticketSeq == null) ticketSeq = nextTicketSeq();
+    return code + '-' + loc + '-' + String(ticketSeq).padStart(4, '0');
+  }
+
+  function refreshTicketNumber() {
+    if (!ticketNumberAuto) return;
+    $('ticketNumber').value = buildTicketNumber();
   }
 
   function newTicket() {
@@ -3782,7 +3809,9 @@
     });
 
     // sensible defaults for a fresh intake
-    $('ticketNumber').value = nextTicketNumber();
+    ticketSeq = null;
+    ticketNumberAuto = true;
+    refreshTicketNumber();
     $('state').value = 'New';
     $('priority').value = '3';
     $('escalation').value = 'none';
@@ -4399,6 +4428,7 @@
 
     initTheme();
     initVocab();
+    ticketSeq = null;
     initEntityDropdowns();
     initTicketDropdowns();
     addABBlock();
