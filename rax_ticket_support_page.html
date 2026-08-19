@@ -1,122 +1,162 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RAX Ticket Support — choose your system</title>
 <style>
 /* ============================================================
-   Launcher. Self-contained: no CDN, no framework, no build step.
+   Launcher — deliberately wearing the legacy CORE look and feel:
+   Segoe UI, bordered panels with solid title bars, datatable grids.
+   Self-contained: no CDN, no framework, no build step.
    ============================================================ */
 :root{
-  --bg:#f4f6fb; --panel:#fff; --ink:#16202f; --muted:#63708a; --line:#dde3ee;
-  --legacy:#1565d8; --legacy-2:#0b3f8f; --legacy-soft:#eaf1fd;
-  --kats:#12855a;   --kats-2:#0a5c3e;   --kats-soft:#e8f6f0;
-  --ai:#7c3aed;     --warn:#b8690b;     --cust:#d6274a;
-  --radius:14px;
-}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#0e1420; --panel:#151d2b; --ink:#e7ecf5; --muted:#93a1bb; --line:#26314a;
-    --legacy-soft:#111f36; --kats-soft:#0f2620;
-  }
+  --core-blue:#0d6efd; --core-blue-2:#0a58ca; --core-blue-soft:#e8f1ff;
+  --legacy:#c62234;    --legacy-2:#8f1020;    --legacy-soft:#fdeef0;
+  --kats:#0d6efd;      --kats-2:#0a58ca;      --kats-soft:#e8f1ff;
+  --ink:#1c2331; --muted:#5d6b82; --line:#c9d4e4; --panel:#fff; --bg:#eef2f8;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);
-  font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 44px}
+  font:14px/1.55 "Segoe UI",Tahoma,Geneva,Verdana,sans-serif}
+.wrap{max-width:1200px;margin:0 auto;padding:14px 16px 46px}
 
-/* --- header (mirrors the CORE bar) --- */
-.topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  background:linear-gradient(95deg,var(--legacy),var(--legacy-2));color:#fff;
-  padding:11px 18px;border-radius:var(--radius);margin-bottom:26px}
-.topbar .brand{font-weight:800;letter-spacing:.4px;font-size:17px}
-.topbar .tag{font-size:12.5px;opacity:.85}
-.topbar .env{margin-left:auto;font-size:11.5px;font-weight:700;letter-spacing:.6px;
-  background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);
-  padding:3px 10px;border-radius:999px}
+/* --- CORE menubar --- */
+.menubar{display:flex;align-items:center;gap:2px;flex-wrap:wrap;
+  background:linear-gradient(180deg,var(--core-blue) 0%,var(--core-blue-2) 100%);
+  border:1px solid var(--core-blue-2);padding:0 10px;margin-bottom:16px;
+  border-radius:4px;box-shadow:0 2px 5px rgba(13,58,120,.25)}
+.menubar .brand{color:#fff;font-weight:800;letter-spacing:.5px;padding:9px 12px 9px 4px;font-size:15px}
+.menubar a{color:#fff;text-decoration:none;font-size:12.5px;font-weight:600;
+  padding:9px 11px;opacity:.92}
+.menubar a:hover{background:rgba(255,255,255,.16);opacity:1}
+.menubar .env{margin-left:auto;color:#fff;font-size:11px;font-weight:700;letter-spacing:.7px;
+  background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);
+  padding:2px 9px;border-radius:3px;margin-right:4px}
 
-.lede{text-align:center;margin:0 auto 26px;max-width:720px}
-.lede h1{margin:0 0 8px;font-size:26px;line-height:1.25}
-.lede p{margin:0;color:var(--muted);font-size:14.5px}
+/* --- CORE panel --- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;
+  margin-bottom:16px;overflow:hidden;box-shadow:0 1px 3px rgba(28,35,49,.07)}
+.panel > .title{background:linear-gradient(180deg,var(--core-blue) 0%,var(--core-blue-2) 100%);
+  color:#fff;font-weight:700;font-size:12.5px;letter-spacing:.5px;text-transform:uppercase;
+  padding:7px 13px;border-bottom:1px solid var(--core-blue-2)}
+.panel > .inner{padding:15px 18px}
 
-/* --- the two options --- */
-.opts{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch}
-@media(max-width:880px){.opts{grid-template-columns:1fr}}
+/* --- tribute --- */
+.tribute p{margin:0 0 11px;font-size:14.5px}
+.tribute p:last-child{margin-bottom:0}
+.tribute .lead{font-size:15.5px}
+.tribute b{color:var(--ink)}
+.tribute .sig{color:var(--muted);font-size:13px;font-style:italic;
+  border-left:3px solid var(--core-blue);padding-left:11px;margin-top:14px}
 
-.opt{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+/* --- the two systems --- */
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch;margin-bottom:16px}
+@media(max-width:900px){.opts{grid-template-columns:1fr}}
+
+.sys{background:var(--panel);border:1px solid var(--line);border-radius:4px;
   display:flex;flex-direction:column;overflow:hidden;position:relative;
-  transition:transform .13s ease, box-shadow .13s ease}
-.opt:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(16,28,52,.14)}
-.opt .head{padding:16px 18px;color:#fff}
-.opt.legacy .head{background:linear-gradient(95deg,var(--legacy),var(--legacy-2))}
-.opt.kats   .head{background:linear-gradient(95deg,var(--kats),var(--kats-2))}
-.opt .head h2{margin:0;font-size:19px;line-height:1.25}
-.opt .head .sub{font-size:12.5px;opacity:.9;margin-top:3px}
-.opt .body{padding:16px 18px;flex:1}
-.opt ul{margin:0;padding-left:19px}
-.opt li{margin-bottom:7px;font-size:13.5px;color:var(--muted)}
-.opt li b{color:var(--ink);font-weight:650}
-.opt .foot{padding:0 18px 18px}
+  box-shadow:0 1px 3px rgba(28,35,49,.07);transition:box-shadow .13s ease,transform .13s ease}
+.sys:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(28,35,49,.16)}
 
-.badge-new{position:absolute;top:13px;right:14px;background:var(--ai);color:#fff;
-  font-size:10.5px;font-weight:800;letter-spacing:.8px;padding:3px 9px;border-radius:999px}
+/* the header IS a button */
+a.sys-head{display:block;text-decoration:none;color:#fff;padding:15px 18px;
+  border-bottom:1px solid rgba(0,0,0,.2);cursor:pointer;transition:filter .13s ease}
+a.sys-head:hover{filter:brightness(1.1)}
+a.sys-head:active{filter:brightness(.94)}
+a.sys-head h2{margin:0;font-size:20px;font-weight:800;letter-spacing:.2px;
+  display:flex;align-items:center;gap:9px}
+a.sys-head h2 .go{margin-left:auto;font-size:17px;opacity:.85}
+a.sys-head .sub{font-size:12.5px;opacity:.93;margin-top:3px}
+
+.sys.legacy a.sys-head{background:linear-gradient(180deg,var(--legacy) 0%,var(--legacy-2) 100%)}
+.sys.kats   a.sys-head{background:linear-gradient(180deg,var(--kats) 0%,var(--kats-2) 100%)}
+
+.sys .body{padding:15px 18px;flex:1}
+.sys ul{margin:0;padding-left:19px}
+.sys li{margin-bottom:8px;font-size:13.5px;color:var(--muted)}
+.sys li b{color:var(--ink);font-weight:650}
+.sys .foot{padding:0 18px 18px}
+
+.badge-new{position:absolute;top:14px;right:16px;background:#fff;color:var(--kats-2);
+  font-size:10.5px;font-weight:800;letter-spacing:.9px;padding:3px 9px;border-radius:3px}
 
 .launch{display:block;width:100%;text-align:center;text-decoration:none;
-  border:none;border-radius:10px;padding:13px 18px;font:inherit;
+  border:1px solid;border-radius:4px;padding:13px 18px;font:inherit;
   font-weight:800;font-size:15px;cursor:pointer;color:#fff}
-.launch.legacy{background:var(--legacy)}
-.launch.legacy:hover{background:var(--legacy-2)}
-.launch.kats{background:var(--kats)}
-.launch.kats:hover{background:var(--kats-2)}
-.launch small{display:block;font-weight:500;font-size:11.5px;opacity:.85;margin-top:2px}
+.launch.legacy{background:linear-gradient(180deg,var(--legacy) 0%,var(--legacy-2) 100%);border-color:var(--legacy-2)}
+.launch.kats{background:linear-gradient(180deg,var(--kats) 0%,var(--kats-2) 100%);border-color:var(--kats-2)}
+.launch:hover{filter:brightness(1.1)}
+.launch small{display:block;font-weight:500;font-size:11.5px;opacity:.88;margin-top:3px}
 
-/* --- comparison --- */
-.cmp{margin-top:28px;background:var(--panel);border:1px solid var(--line);
-  border-radius:var(--radius);overflow:hidden}
-.cmp h3{margin:0;padding:12px 18px;font-size:13px;text-transform:uppercase;
-  letter-spacing:.6px;background:var(--legacy-soft);color:var(--ink);
-  border-bottom:1px solid var(--line)}
+/* --- comparison, CORE datatable style --- */
 table{width:100%;border-collapse:collapse;font-size:13.5px}
-th,td{padding:9px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-th{font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
-td.q{font-weight:650;width:31%}
-td.legacy{background:var(--legacy-soft);width:32%}
-td.kats{background:var(--kats-soft);width:37%}
-tr:last-child td{border-bottom:none}
-.no{color:var(--cust);font-weight:700}
-.yes{color:var(--kats);font-weight:700}
+th,td{padding:9px 15px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{background:#dbe4f0;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;
+  color:#3b4a63;font-weight:700;border-bottom:2px solid var(--line)}
+td.q{font-weight:650;width:30%}
+td.c-legacy{background:var(--legacy-soft);width:32%}
+td.c-kats{background:var(--kats-soft);width:38%}
+tbody tr:last-child td{border-bottom:none}
+.no{color:var(--legacy-2);font-weight:700}
+.yes{color:var(--kats-2);font-weight:700}
 
-.note{margin-top:20px;background:var(--panel);border:1px solid var(--warn);
-  border-left:4px solid var(--warn);border-radius:10px;padding:12px 16px;
-  font-size:13px;color:var(--muted)}
-.note b{color:var(--ink)}
-kbd{background:var(--legacy-soft);border:1px solid var(--line);border-radius:4px;
-  padding:1px 6px;font:inherit;font-size:12.5px}
+.note{background:#fffbe6;border:1px solid #e0c874;border-left:4px solid #d9a520;
+  border-radius:4px;padding:12px 16px;font-size:13px;color:#5c4a12}
+.note b{color:#3d3008}
+kbd{background:#fff;border:1px solid var(--line);border-radius:3px;padding:1px 6px;font:inherit;font-size:12.5px}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <div class="topbar">
+  <div class="menubar">
     <span class="brand">RAX</span>
-    <span class="tag">Ticket Support</span>
+    <a href="#">Rack</a><a href="#">CORE</a><a href="#">Departments</a>
+    <a href="#">Churn Forecasts</a><a href="#">Reports</a><a href="#">History</a>
+    <a href="#">Account</a><a href="#">Ticket</a>
     <span class="env">DEMO ENVIRONMENT</span>
   </div>
 
-  <div class="lede">
-    <h1>Choose your ticket system</h1>
-    <p>The same support workflow, two different tools. Open either in a new tab and compare them side by side.</p>
+  <!-- ---------------- TRIBUTE / INTRO ---------------- -->
+  <div class="panel tribute">
+    <div class="title">Ticket Support — where we are, and where we are going</div>
+    <div class="inner">
+      <p class="lead">
+        For many years, <b>RAX Core</b> has carried our support operation. Every incident, every
+        escalation, every customer conversation has passed through it. It has served this company
+        faithfully, and the discipline it built into our teams is the reason we can raise the bar now.
+        <b>Thank you, Core.</b>
+      </p>
+      <p>
+        But our customers' platforms have grown more complex, and their expectations have risen with
+        them. Serving them better means evolving how we work — not simply logging tickets faster, but
+        running a <b>smarter, more efficient support process</b>: one that captures <em>the problem</em>
+        and not just the ticket, that turns every solved case into a <b>compounding knowledge base</b>
+        the next engineer inherits, and that puts an <b>AI agent</b> alongside our people to
+        <b>help us see the unseen</b> — the duplicate already open on another queue, the recurrence
+        nobody linked, the pattern hidden across a year of tickets, the issue that was never a fault
+        at all.
+      </p>
+      <p>
+        This is evolution, not replacement. <b>KATS</b> keeps what Core does well and adds what it was
+        never built to do: the structure of a real problem analysis, and a memory that outlives the
+        engineer who wrote it.
+      </p>
+      <p class="sig">
+        Open either system below and compare them on the same ticket.
+      </p>
+    </div>
   </div>
 
+  <!-- ---------------- THE TWO SYSTEMS ---------------- -->
   <div class="opts">
 
-    <!-- ---------------- LEGACY ---------------- -->
-    <div class="opt legacy">
-      <div class="head">
-        <h2>RAX Core Legacy</h2>
+    <div class="sys legacy">
+      <a class="sys-head" href="core_ticket_rebuilt.html" target="_blank" rel="noopener">
+        <h2>RAX Core Legacy <span class="go">→</span></h2>
         <div class="sub">The ticket view in use today</div>
-      </div>
+      </a>
       <div class="body">
         <ul>
           <li><b>Records what happened to the ticket</b> — queue moves, assignments, status changes, work logged</li>
@@ -134,13 +174,12 @@ kbd{background:var(--legacy-soft);border:1px solid var(--line);border-radius:4px
       </div>
     </div>
 
-    <!-- ---------------- KATS ---------------- -->
-    <div class="opt kats">
+    <div class="sys kats">
       <span class="badge-new">NEW</span>
-      <div class="head">
-        <h2>KATS</h2>
+      <a class="sys-head" href="kt_support_demo.html" target="_blank" rel="noopener">
+        <h2>KATS <span class="go">→</span></h2>
         <div class="sub">KT AI Enhanced Ticket Support System</div>
-      </div>
+      </a>
       <div class="body">
         <ul>
           <li><b>Records the problem, not just the ticket</b> — Kepner-Tregoe intake: WHAT, WHERE, WHEN, TREND, HOW MANY</li>
@@ -160,8 +199,8 @@ kbd{background:var(--legacy-soft);border:1px solid var(--line);border-radius:4px
   </div>
 
   <!-- ---------------- COMPARISON ---------------- -->
-  <div class="cmp">
-    <h3>What changes for the engineer</h3>
+  <div class="panel">
+    <div class="title">What changes for the engineer</div>
     <table>
       <thead>
         <tr><th>Question on a live ticket</th><th>RAX Core Legacy</th><th>KATS</th></tr>
@@ -169,38 +208,38 @@ kbd{background:var(--legacy-soft);border:1px solid var(--line);border-radius:4px
       <tbody>
         <tr>
           <td class="q">Is this issue already open on another ticket?</td>
-          <td class="legacy"><span class="no">Search manually</span> by keyword, if you think to</td>
-          <td class="kats"><span class="yes">Answered on open</span> — ticket number, status, priority, age</td>
+          <td class="c-legacy"><span class="no">Search manually</span> by keyword, if you think to</td>
+          <td class="c-kats"><span class="yes">Answered on open</span> — ticket number, status, priority, age</td>
         </tr>
         <tr>
           <td class="q">Have we solved this before?</td>
-          <td class="legacy"><span class="no">Ask a colleague</span> or trawl closed tickets</td>
-          <td class="kats"><span class="yes">Ranked matches</span> with the verified fix and what it cost last time</td>
+          <td class="c-legacy"><span class="no">Ask a colleague</span> or trawl closed tickets</td>
+          <td class="c-kats"><span class="yes">Ranked matches</span> with the verified fix and what it cost last time</td>
         </tr>
         <tr>
           <td class="q">Is it actually a fault?</td>
-          <td class="legacy"><span class="no">Troubleshoot first</span>, find out later</td>
-          <td class="kats"><span class="yes">Works-as-designed detected</span> — explain and close, don't investigate</td>
+          <td class="c-legacy"><span class="no">Troubleshoot first</span>, find out later</td>
+          <td class="c-kats"><span class="yes">Works-as-designed detected</span> — explain and close, don't investigate</td>
         </tr>
         <tr>
           <td class="q">What should I try first?</td>
-          <td class="legacy"><span class="no">Engineer's judgement</span>, unrecorded</td>
-          <td class="kats"><span class="yes">3 ranked causes</span>, each with evidence for and against and one single-variable test</td>
+          <td class="c-legacy"><span class="no">Engineer's judgement</span>, unrecorded</td>
+          <td class="c-kats"><span class="yes">3 ranked causes</span>, each with evidence for and against and one single-variable test</td>
         </tr>
         <tr>
           <td class="q">What breaks us most often?</td>
-          <td class="legacy"><span class="no">Not answerable</span> — root causes are free text</td>
-          <td class="kats"><span class="yes">Pareto by coded category</span>, per customer and fleet-wide</td>
+          <td class="c-legacy"><span class="no">Not answerable</span> — root causes are free text</td>
+          <td class="c-kats"><span class="yes">Pareto by coded category</span>, per customer and fleet-wide</td>
         </tr>
         <tr>
           <td class="q">What does this customer keep hitting?</td>
-          <td class="legacy"><span class="no">Read the ticket list</span></td>
-          <td class="kats"><span class="yes">Customer 360</span> — MTTR trend, recurring issues, open Problems</td>
+          <td class="c-legacy"><span class="no">Read the ticket list</span></td>
+          <td class="c-kats"><span class="yes">Customer 360</span> — MTTR trend, recurring issues, open Problems</td>
         </tr>
         <tr>
           <td class="q">How do I hand this over?</td>
-          <td class="legacy"><span class="no">Write it out again</span> from the comment thread</td>
-          <td class="kats"><span class="yes">Handover drafted</span> from the tests you already ran</td>
+          <td class="c-legacy"><span class="no">Write it out again</span> from the comment thread</td>
+          <td class="c-kats"><span class="yes">Handover drafted</span> from the tests you already ran</td>
         </tr>
       </tbody>
     </table>
@@ -210,8 +249,8 @@ kbd{background:var(--legacy-soft);border:1px solid var(--line);border-radius:4px
     <b>Note for the demo.</b> Both pages are self-contained and run offline.
     The KATS AI agent is a <b>mock</b> — no model is called; every result is deterministic reasoning
     over the knowledge base, case history and problem register, so the behaviour is reproducible on stage.
-    Sensitive values in the legacy page's Account Management Guidelines (bastion IPs, PasswordSafe reference,
-    escalation contacts) are <b>masked by default</b> — click any <kbd>▉</kbd> block to reveal.
+    All data is fictional. Sensitive values in the legacy page's Account Management Guidelines are
+    <b>masked by default</b> — click any <kbd>▉</kbd> block to reveal.
   </div>
 
 </div>
