@@ -5,7 +5,7 @@ that reads your knowledge base, customer history and problem register to find th
 resolution** — including telling you not to troubleshoot at all.
 
 > **Proof of concept.** Runs entirely in a browser, offline, from a single file.
-> The AI agent is a **mock** — no model is called. See [Is the AI real?](#is-the-ai-real).
+> The AI agent is a **mock** — no model is called. See [Is the AI real?](#is-the-ai-real)
 
 ---
 
@@ -17,14 +17,23 @@ cd KATS
 ./start.sh
 ```
 
-Or just open `kt_support_demo.html` in a browser. No install, no build, no server, no internet.
+That lands on a **chooser page**: open the legacy ticket view and KATS side by side on the same
+ticket, and compare them.
+
+```bash
+./start.sh kats     # straight to KATS
+./start.sh core     # straight to the legacy view
+./start.sh --build  # rebuild the bundle first, then serve
+```
+
+No install, no build, no internet. You can also just double-click `rax_ticket_support_page.html`.
 
 ---
 
-## The problem it solves
+## Why it exists
 
-Every ticket tool on the market records **what happened to the ticket** — who it was assigned to,
-which queue it moved through, when the status changed.
+Every ticket tool records **what happened to the ticket** — who it was assigned to, which queue it
+moved through, when the status changed.
 
 Almost none of them record **what the problem was**.
 
@@ -41,6 +50,98 @@ That single gap causes all of this:
 KATS closes the gap by capturing the **problem**, not just the ticket — and by making every solved
 case teach the next one.
 
+This is **evolution, not replacement**. It keeps what a classic ticket system does well and adds what
+it was never built to do: the structure of a real problem analysis, and a memory that outlives the
+engineer who wrote it.
+
+---
+
+## What you get
+
+### 1. Kepner-Tregoe problem analysis
+
+Structured intake — **WHAT, WHERE, WHEN, TREND, HOW MANY** — instead of a free-text description.
+**IS / IS NOT** bounding, because the cause must explain both what is broken *and* what is comparable
+but healthy. **A/B distinction** against a working twin. **Single-variable testing**, so a result
+actually proves something. A **5-Whys causal chain** with evidence required at every link.
+
+### 2. AI agent — inference on every step
+
+**Triage runs automatically** the moment a ticket opens, and answers four questions outright:
+
+| Question | Answer |
+|---|---|
+| Same issue already open? | **YES — 2 open** · ticket number, status, priority, age |
+| Seen before? | **YES — 8 solved previously** · what each one cost |
+| Working as designed? | **No — genuine fault** (or *YES — no defect*, don't troubleshoot) |
+| Known fix available? | **YES — KB-2025-0001** · match score and reuse count |
+
+Then: **3 ranked probable causes**, each with evidence for, evidence against, one single-variable
+test and an expected result. Plus plan critique, root-cause inference, KB-article drafting,
+escalation handover drafting, Problem clustering, and a fleet health diagnostic.
+
+Every plan is **costed against what the issue took the first time** — the demo's headline recurrence
+drops from **215 minutes to a 40-minute plan**.
+
+Two rules the agent never breaks: **it proposes, you decide** — nothing changes ticket state on its
+own; and every claim **shows its evidence**, with expandable reasoning.
+
+### 3. Smart Knowledge Base — memory that compounds
+
+One schema for every article, so a retrieval agent can actually search it.
+**Error-signature normalization** strips timestamps, UUIDs, request IDs and host IPs while *keeping*
+meaningful constants, so the same fault matches twice. **Explainable search** shows a match score and
+*why* it matched. **Automatic de-duplication** bumps an article's reuse count instead of creating a
+near-twin. **Secret scrubbing** redacts passwords, keys, tokens, SSH targets and emails before
+publishing — and blocks publishing if you switch it off. **Verified-fix gating** stops an unverified
+article outranking a proven one.
+
+### 4. Problem & recurrence management
+
+**Problem records outlive the ticket** and own the root cause; incidents merely reference them.
+**Recurrence counting** is the evidence that funds a permanent fix. **Known Error** state for a
+verified workaround with no permanent fix yet. **Blast radius and cost** — every affected customer
+and the hours spent across all linked cases. **Auto-clustering** proposes unlinked cases sharing a
+signature as one Problem. A **coded root-cause taxonomy**, so *"what breaks us most often"* becomes a
+chart rather than an opinion.
+
+### 5. Customer & fleet intelligence
+
+**Customer 360** — case history, MTTR trend, recurring issues, open Problems, top failing components.
+**Related cases** across four relation types. **Case timeline** as the handover artefact.
+**Operations dashboard** — 1 day / 3 days / 1 week / 30 days, opened vs solved, pending, P1s, MTTR,
+top 10 customers / issue types / infrastructure, and an **infrastructure health score** with the
+factors costing points and a prioritised remediation plan.
+
+<details>
+<summary><b>Full capability list (40 items)</b></summary>
+
+**Kepner-Tregoe** — structured WHAT/WHERE/WHEN/TREND/HOW MANY intake · IS / IS NOT bounding ·
+A/B distinction against a working twin · single-variable testing · 5-Whys causal chain with evidence ·
+impacted nodes and VMs listed individually, healthy ones marked as the IS NOT set
+
+**AI agent** — automatic triage · duplicate & recurrence detection with ticket number, status,
+priority and age · works-as-designed verdict · 3 ranked probable causes with tests · plan review that
+shortens your plan · root-cause inference with coded category and causal chain · handover drafting ·
+KB-article drafting · fleet health diagnostic · time saved quantified · proposes-you-decide with
+evidence shown
+
+**Smart KB** — one schema · error-signature normalization · explainable search · automatic
+de-duplication · secret scrubbing with publish blocking · verified-fix gating · reuse tracking ·
+vector-search ready with assembled embedding field and JSON export
+
+**Problems** — records outlive the ticket · recurrence counting · Known Error state · blast radius
+and cost · auto-clustering · coded root-cause taxonomy
+
+**Intelligence** — Customer 360 · related cases (4 relation types) · case timeline · operations
+dashboard with 5 time ranges · top 10 customers / issue types / infrastructure · infrastructure
+health score
+
+**Workflow** — colour-coded ownership (red = customer input, blue = support input) · KB-readiness
+meter · comments on every step · autosave and draft restore · full ticket export as JSON
+
+</details>
+
 ---
 
 ## How it simplifies the work
@@ -50,32 +151,12 @@ case teach the next one.
 | Is this already open on another ticket? | Search manually, if you think to | **Answered on open** — ticket number, status, priority, age |
 | Have we solved this before? | Ask a colleague, trawl closed tickets | **Ranked matches** with the verified fix and what it cost last time |
 | Is this even a fault? | Troubleshoot first, find out later | **Works-as-designed detected** — explain and close |
-| What should I try first? | Engineer's judgement, unrecorded | **3 ranked causes**, each with evidence for/against and one single-variable test |
+| What should I try first? | Engineer's judgement, unrecorded | **3 ranked causes**, each with evidence and one single-variable test |
 | What breaks us most often? | Not answerable | **Pareto by coded root-cause category** |
 | What does this customer keep hitting? | Read the ticket list | **Customer 360** — MTTR trend, recurring issues, open Problems |
 | How do I hand this over? | Write it out again from the comment thread | **Handover drafted** from the tests you already ran |
 
-The whole design goal is **fewest actions and fewest minutes to a correct answer** — not more forms.
-
----
-
-## Benefits
-
-- **Skip discovery when the answer already exists.** Triage runs the moment a ticket opens and says
-  whether this is a known error, a recurrence, a duplicate, or genuinely new.
-- **Stop work that shouldn't happen.** A *works-as-designed* verdict ends the ticket in minutes
-  instead of hours.
-- **Catch duplicates before two people work them.** Same normalized error signature = flagged, with
-  the other ticket's number and current status.
-- **Make recurrence visible.** A Problem record outlives the ticket and counts how often it comes
-  back — the evidence that funds a permanent fix.
-- **Make root causes countable.** A coded taxonomy instead of free text, so *"what breaks us"*
-  becomes a chart rather than an opinion.
-- **Keep knowledge when people leave.** Every closed case can become a verified KB article, in one
-  schema, ready for a retrieval agent.
-
-In the bundled demo data, a recurrence that originally took **215 minutes** to solve is resolved
-with a **40-minute** plan — because the fix was already known.
+The design goal is **fewest actions and fewest minutes to a correct answer** — not more forms.
 
 ---
 
@@ -96,16 +177,20 @@ with a **40-minute** plan — because the fix was already known.
 
 | File | What it is |
 |---|---|
-| `rax_ticket_support_page.html` | **Start here.** Landing page — choose legacy view or KATS |
+| `rax_ticket_support_page.html` | **Start here.** Chooser — legacy view vs KATS, side by side |
 | `kt_support_demo.html` | **The demo.** Single standalone file, 0 external requests |
 | `core_ticket_rebuilt.html` | A legacy ticket view, rebuilt — the "before" side of the story |
 | `kt_support_v8.html` | Source of the demo (needs the JS modules beside it) |
-| `kb_database.js` | Knowledge base: schema, 12 seeded articles, search, dedupe, secret scrubbing |
+| `kb_database.js` | KB schema, 12 seeded articles, search, dedupe, secret scrubbing |
 | `kt_data.js` | Customers, Cases, Problems (the ITIL spine) + dashboard analytics |
 | `ai_agent.js` | The AI agent layer — **mock**, with the real contract |
 | `demo_tickets.js` | 10 fully-populated demo tickets, each with a related case |
 | `build_demo.js` | Bundles everything into the single standalone file |
 | `start.sh` | Serves it and opens a browser |
+
+**Demo data:** 5 customers · 100+ cases · 6 Problem records · 12 KB articles · 10 demo tickets
+covering every triage verdict (known error, recurrence, works-as-designed, new investigation).
+Recent activity is synthesised **relative to today**, so the dashboard never goes stale.
 
 ### Rebuilding after an edit
 
@@ -159,14 +244,9 @@ UI only ever consumes the `AIResult` shape.
 The eight tasks: `triage`, `probable_causes`, `critique_plan`, `root_cause`, `kb_draft`, `handover`,
 `cluster`, `infra_health`.
 
-**Two design rules the agent never breaks:**
-
-- It **proposes; you accept or reject.** Nothing changes ticket state on its own.
-- Every claim **shows its evidence** — KB article, Problem or case IDs, plus expandable reasoning.
-
 ### Making it genuinely intelligent
 
-The retrieval today is lexical scoring, so *"VM won't boot"* and *"instance fails to spawn"* score as
+Retrieval today is lexical scoring, so *"VM won't boot"* and *"instance fails to spawn"* score as
 unrelated. Every article already carries an assembled `embedding_text` field for exactly this reason —
 blend vector similarity into `KB.score()` and all the agent's matching features become semantic at
 once, with no UI changes.
@@ -176,7 +256,7 @@ once, with no UI changes.
 ## Data and privacy
 
 - The demo ships **fictional data only** — invented customers, tickets and infrastructure.
-- Section 8 (Access & Constraints) is **scrubbed for secrets** before anything is published to the KB:
+- Section 8 (Access & Constraints) is **scrubbed for secrets** before anything reaches the KB:
   passwords, private keys, tokens, SSH targets and emails are detected and redacted.
 - Publishing is **blocked** if secrets are detected and scrubbing is switched off.
 - State lives in `localStorage`, per browser. Nothing is transmitted anywhere unless you configure a
@@ -192,7 +272,7 @@ This is a **proof of concept**, honestly labelled:
 - Storage is per-browser `localStorage` — fine for one operator, not for a team. Multi-user needs the
   KB/case API endpoints wired to a real backend; the POST paths exist and are tested.
 - Search is lexical, not semantic.
-- The dashboard's recent activity is **synthesised relative to today**, so the demo never goes stale.
+- The dashboard's recent activity is synthesised relative to today, so the demo never goes stale.
 
 ## License
 
