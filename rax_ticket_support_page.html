@@ -78,6 +78,21 @@ a.sys-head .sub{font-size:12.5px;opacity:.93;margin-top:3px}
 .sys li b{color:var(--ink);font-weight:650}
 .sys .foot{padding:0 18px 18px}
 
+/* grouped capability blocks (KATS card) */
+.grp{margin-bottom:15px}
+.grp:last-child{margin-bottom:0}
+.grp-t{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;
+  text-transform:uppercase;letter-spacing:.6px;color:var(--kats-2);
+  border-bottom:1px solid var(--line);padding-bottom:5px;margin-bottom:8px}
+.grp-t .n{display:inline-flex;align-items:center;justify-content:center;
+  width:19px;height:19px;border-radius:3px;background:var(--kats);color:#fff;
+  font-size:11px;font-weight:800;letter-spacing:0;flex:none}
+.grp li{margin-bottom:6px;font-size:13px;line-height:1.5}
+
+/* the legacy card is deliberately shorter — pin its content to the top */
+.sys.legacy .body{flex:0 0 auto}
+.sys.legacy .foot{margin-top:auto}
+
 .badge-new{position:absolute;top:14px;right:16px;background:#fff;color:var(--kats-2);
   font-size:10.5px;font-weight:800;letter-spacing:.9px;padding:3px 9px;border-radius:3px}
 
@@ -181,13 +196,86 @@ kbd{background:#fff;border:1px solid var(--line);border-radius:3px;padding:1px 6
         <div class="sub">KT AI Enhanced Ticket Support System</div>
       </a>
       <div class="body">
-        <ul>
-          <li><b>Records the problem, not just the ticket</b> — Kepner-Tregoe intake: WHAT, WHERE, WHEN, TREND, HOW MANY</li>
-          <li><b>Automatic triage</b> — on open it answers: is this already open elsewhere, seen before, working as designed, is there a known fix</li>
-          <li><b>Controlled facets</b> — customer, component and root-cause category are coded, so they group, count and rank</li>
-          <li><b>Problem records</b> that outlive the ticket, with recurrence counts and blast radius</li>
-          <li><b>Every solved case feeds the Knowledge Base</b> — the next engineer starts where the last one finished</li>
-        </ul>
+
+        <div class="grp">
+          <div class="grp-t"><span class="n">1</span> Kepner-Tregoe problem analysis</div>
+          <ul>
+            <li><b>Structured intake</b> — WHAT, WHERE, WHEN, TREND and HOW MANY, instead of a free-text description</li>
+            <li><b>IS / IS NOT bounding</b> — record what is affected <em>and</em> what is comparable but healthy; the cause must explain both</li>
+            <li><b>A/B distinction</b> — put the broken case beside a working twin; the shortest list of differences is your candidate cause list</li>
+            <li><b>Single-variable testing</b> — one reversible change, one target, so a result actually proves something</li>
+            <li><b>5-Whys causal chain</b> with evidence required at every link</li>
+            <li><b>Scale of impact</b> — impacted nodes and VMs listed individually, healthy ones marked as the IS NOT set</li>
+          </ul>
+        </div>
+
+        <div class="grp">
+          <div class="grp-t"><span class="n">2</span> AI agent — inference on every step</div>
+          <ul>
+            <li><b>Automatic triage</b> — runs the moment a ticket opens and answers four questions outright:
+                is it already open elsewhere, have we seen it before, is it working as designed, is there a known fix</li>
+            <li><b>Duplicate &amp; recurrence detection</b> — matches on a normalized error signature and returns the
+                other ticket's <b>number, status, priority and age</b></li>
+            <li><b>"Works as designed" verdict</b> — the answer that saves the most time is often <em>stop, this is not a fault</em></li>
+            <li><b>3 ranked probable causes</b> — each with evidence for, evidence against, one single-variable test and an expected result</li>
+            <li><b>Plan review</b> — critiques your hypotheses, removes what the evidence refutes, shortens the plan</li>
+            <li><b>Root-cause inference</b> — proposes the cause, its coded category and a causal chain from the matched history</li>
+            <li><b>Drafts the handover</b> from the tests you already ran, and the <b>KB article</b> from the solved ticket</li>
+            <li><b>Fleet health diagnostic</b> — scores the estate and ranks what to fix first</li>
+            <li><b>Time saved, quantified</b> — every plan is costed against what the issue took the first time</li>
+            <li><b>It proposes, you decide</b> — nothing changes ticket state on its own, and every claim shows its evidence</li>
+          </ul>
+        </div>
+
+        <div class="grp">
+          <div class="grp-t"><span class="n">3</span> Smart Knowledge Base — memory that compounds</div>
+          <ul>
+            <li><b>One schema for every article</b> — so a retrieval agent can actually search it</li>
+            <li><b>Error-signature normalization</b> — strips timestamps, UUIDs, request IDs and host IPs while keeping
+                meaningful constants, so the same fault matches twice</li>
+            <li><b>Explainable search</b> — every hit shows a match score <em>and why it matched</em></li>
+            <li><b>Automatic de-duplication</b> — republishing the same fault bumps its reuse count instead of creating a near-twin</li>
+            <li><b>Secret scrubbing</b> — passwords, keys, tokens, SSH targets and emails are detected and redacted before publishing; publishing is blocked if you switch it off</li>
+            <li><b>Verified-fix gating</b> — an unverified article never outranks a proven one</li>
+            <li><b>Reuse tracking</b> — the KB learns which articles actually get used, not just which rank well</li>
+            <li><b>Vector-search ready</b> — every article carries an assembled embedding field and exports as JSON</li>
+          </ul>
+        </div>
+
+        <div class="grp">
+          <div class="grp-t"><span class="n">4</span> Problem &amp; recurrence management</div>
+          <ul>
+            <li><b>Problem records outlive the ticket</b> and own the root cause — incidents merely reference them</li>
+            <li><b>Recurrence counting</b> — the evidence that funds a permanent fix</li>
+            <li><b>Known Error state</b> — a verified workaround with no permanent fix yet, expressed properly</li>
+            <li><b>Blast radius and cost</b> — every affected customer, and the hours spent across all linked cases</li>
+            <li><b>Auto-clustering</b> — unlinked cases sharing a signature are proposed as one Problem</li>
+            <li><b>Coded root-cause taxonomy</b> — so "what breaks us most often" becomes a chart, not an opinion</li>
+          </ul>
+        </div>
+
+        <div class="grp">
+          <div class="grp-t"><span class="n">5</span> Customer &amp; fleet intelligence</div>
+          <ul>
+            <li><b>Customer 360</b> — full case history, MTTR trend, recurring issues, open Problems, top failing components</li>
+            <li><b>Related cases</b> — same signature, same Problem, same customer+component, same customer</li>
+            <li><b>Case timeline</b> — the event stream, exportable as the handover artefact</li>
+            <li><b>Operations dashboard</b> — 1 day / 3 days / 1 week / 30 days, opened vs solved, pending, P1s, MTTR</li>
+            <li><b>Top 10 customers, issue types and infrastructure</b> by volume, with open counts highlighted</li>
+            <li><b>Infrastructure health score</b> with the factors costing points and a prioritised remediation plan</li>
+          </ul>
+        </div>
+
+        <div class="grp">
+          <div class="grp-t"><span class="n">6</span> Built for the way engineers work</div>
+          <ul>
+            <li><b>Colour-coded ownership</b> — red sections are customer input, blue are support input</li>
+            <li><b>KB-readiness meter</b> — shows live what is still missing before the ticket can teach the next one</li>
+            <li><b>Comments on every step</b>, not just one thread at the bottom</li>
+            <li><b>Autosave and draft restore</b>, and full ticket export as JSON</li>
+          </ul>
+        </div>
+
       </div>
       <div class="foot">
         <a class="launch kats" href="kt_support_demo.html" target="_blank" rel="noopener">
