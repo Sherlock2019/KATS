@@ -3872,11 +3872,9 @@
     body { background: var(--bs-body-bg); }
     [data-bs-theme="light"] body { background: #f7f9fc; }
 
-    /* Scroll anchoring fights us: this page swaps out large blocks (cause
-       cards, comment widgets, A/B blocks) and the browser then restores the
-       old scroll position to keep the visible content stable — undoing our
-       scroll-to-top. Turn it off; nothing here relies on it. */
-    html, body { overflow-anchor: none; }
+    /* Scroll anchoring stays ON (browser default): it keeps the view stable
+       when blocks are swapped out — cause cards, comment widgets, A/B blocks —
+       which is exactly what we want when a form is reset in place. */
 
     .pri-0 { background: var(--pri-0); color: #fff }
     .pri-1 { background: var(--pri-1); color: #fff }
@@ -7415,42 +7413,9 @@
     recolor(); updateErrorSignature(); computeTimeToResolve();
     updateReadiness(); updateStatusBadges(); onCustomerChange();
 
-    scrollPageToTop();
-  }
-
-  /**
-   * Get to the top and STAY there.
-   *
-   * newTicket() rips out and rebuilds a lot of DOM (cause cards, comment
-   * widgets, A/B blocks, panels). The document height changes underneath us,
-   * and the browser's scroll anchoring then "helpfully" restores the previous
-   * position — after our scroll has already run. A single synchronous
-   * scrollTo therefore appears to do nothing.
-   *
-   * So: scroll instantly (smooth scrolls are cancellable), repeat across the
-   * next two animation frames once layout has settled, and once more on a
-   * short timer for slow re-layouts. Focus comes last so it can never drag
-   * the viewport back down.
-   */
-  function scrollPageToTop() {
-    const go = () => {
-      try {
-        window.scrollTo(0, 0);
-        if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
-        if (document.documentElement) document.documentElement.scrollTop = 0;
-        if (document.body) document.body.scrollTop = 0;
-      } catch (e) { /* non-visual environments */ }
-    };
-
-    go();
-    const raf = window.requestAnimationFrame || (fn => setTimeout(fn, 16));
-    raf(() => { go(); raf(go); });
-    setTimeout(go, 80);
-    setTimeout(() => {
-      go();
-      const c = $('customerId');
-      if (c && c.focus) { try { c.focus({ preventScroll: true }); } catch (e) { /* older browsers */ } }
-    }, 160);
+    // Deliberately NO scrolling and NO focus call here. Starting a new ticket
+    // resets the form in place — you stay exactly where you were looking.
+    // Any focus()/scrollTo() added here will move the viewport; don't.
   }
 
   /* ================================================================== */
