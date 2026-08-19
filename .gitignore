@@ -1,0 +1,38 @@
+# ============================================================================
+# NEVER PUBLISH — real customer data
+# Saved production ticket pages containing a real account, bastion IPs,
+# credential-vault references and named individuals' emails and phone numbers.
+# ============================================================================
+currentsupport.html
+currentsupport_backup.html
+currentsupport_files/
+
+# Windows NTFS alternate data streams surfaced by the WSL mount.
+# The colon means "*.Zone.Identifier" does NOT match these — the glob needs the colon.
+*:Zone.Identifier
+*Zone.Identifier
+
+# ---------------------------------------------------------------------------
+# Superseded prototypes — kept locally, not part of the deliverable
+# ---------------------------------------------------------------------------
+support_bubbles_dashboard*.html
+simple3.html
+simpleBubblesupportUI.html
+customer_ticket_form_v4_kt_full_ordered.html
+tickettemplate_updated_v6.html
+tickettemplate_updated_v6 - Copy.html
+kt_support_v7.html
+
+# ---------------------------------------------------------------------------
+# Re-downloadable by `node build_demo.js` — no need to version ~550KB of CDN
+# ---------------------------------------------------------------------------
+vendor/
+
+# ---------------------------------------------------------------------------
+# Noise
+# ---------------------------------------------------------------------------
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+*.swp

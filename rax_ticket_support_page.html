@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAX Ticket Support — choose your system</title>
+<style>
+/* ============================================================
+   Launcher. Self-contained: no CDN, no framework, no build step.
+   ============================================================ */
+:root{
+  --bg:#f4f6fb; --panel:#fff; --ink:#16202f; --muted:#63708a; --line:#dde3ee;
+  --legacy:#1565d8; --legacy-2:#0b3f8f; --legacy-soft:#eaf1fd;
+  --kats:#12855a;   --kats-2:#0a5c3e;   --kats-soft:#e8f6f0;
+  --ai:#7c3aed;     --warn:#b8690b;     --cust:#d6274a;
+  --radius:14px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1420; --panel:#151d2b; --ink:#e7ecf5; --muted:#93a1bb; --line:#26314a;
+    --legacy-soft:#111f36; --kats-soft:#0f2620;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 44px}
+
+/* --- header (mirrors the CORE bar) --- */
+.topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:linear-gradient(95deg,var(--legacy),var(--legacy-2));color:#fff;
+  padding:11px 18px;border-radius:var(--radius);margin-bottom:26px}
+.topbar .brand{font-weight:800;letter-spacing:.4px;font-size:17px}
+.topbar .tag{font-size:12.5px;opacity:.85}
+.topbar .env{margin-left:auto;font-size:11.5px;font-weight:700;letter-spacing:.6px;
+  background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);
+  padding:3px 10px;border-radius:999px}
+
+.lede{text-align:center;margin:0 auto 26px;max-width:720px}
+.lede h1{margin:0 0 8px;font-size:26px;line-height:1.25}
+.lede p{margin:0;color:var(--muted);font-size:14.5px}
+
+/* --- the two options --- */
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch}
+@media(max-width:880px){.opts{grid-template-columns:1fr}}
+
+.opt{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  display:flex;flex-direction:column;overflow:hidden;position:relative;
+  transition:transform .13s ease, box-shadow .13s ease}
+.opt:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(16,28,52,.14)}
+.opt .head{padding:16px 18px;color:#fff}
+.opt.legacy .head{background:linear-gradient(95deg,var(--legacy),var(--legacy-2))}
+.opt.kats   .head{background:linear-gradient(95deg,var(--kats),var(--kats-2))}
+.opt .head h2{margin:0;font-size:19px;line-height:1.25}
+.opt .head .sub{font-size:12.5px;opacity:.9;margin-top:3px}
+.opt .body{padding:16px 18px;flex:1}
+.opt ul{margin:0;padding-left:19px}
+.opt li{margin-bottom:7px;font-size:13.5px;color:var(--muted)}
+.opt li b{color:var(--ink);font-weight:650}
+.opt .foot{padding:0 18px 18px}
+
+.badge-new{position:absolute;top:13px;right:14px;background:var(--ai);color:#fff;
+  font-size:10.5px;font-weight:800;letter-spacing:.8px;padding:3px 9px;border-radius:999px}
+
+.launch{display:block;width:100%;text-align:center;text-decoration:none;
+  border:none;border-radius:10px;padding:13px 18px;font:inherit;
+  font-weight:800;font-size:15px;cursor:pointer;color:#fff}
+.launch.legacy{background:var(--legacy)}
+.launch.legacy:hover{background:var(--legacy-2)}
+.launch.kats{background:var(--kats)}
+.launch.kats:hover{background:var(--kats-2)}
+.launch small{display:block;font-weight:500;font-size:11.5px;opacity:.85;margin-top:2px}
+
+/* --- comparison --- */
+.cmp{margin-top:28px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden}
+.cmp h3{margin:0;padding:12px 18px;font-size:13px;text-transform:uppercase;
+  letter-spacing:.6px;background:var(--legacy-soft);color:var(--ink);
+  border-bottom:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:9px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+td.q{font-weight:650;width:31%}
+td.legacy{background:var(--legacy-soft);width:32%}
+td.kats{background:var(--kats-soft);width:37%}
+tr:last-child td{border-bottom:none}
+.no{color:var(--cust);font-weight:700}
+.yes{color:var(--kats);font-weight:700}
+
+.note{margin-top:20px;background:var(--panel);border:1px solid var(--warn);
+  border-left:4px solid var(--warn);border-radius:10px;padding:12px 16px;
+  font-size:13px;color:var(--muted)}
+.note b{color:var(--ink)}
+kbd{background:var(--legacy-soft);border:1px solid var(--line);border-radius:4px;
+  padding:1px 6px;font:inherit;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <span class="brand">RAX</span>
+    <span class="tag">Ticket Support</span>
+    <span class="env">DEMO ENVIRONMENT</span>
+  </div>
+
+  <div class="lede">
+    <h1>Choose your ticket system</h1>
+    <p>The same support workflow, two different tools. Open either in a new tab and compare them side by side.</p>
+  </div>
+
+  <div class="opts">
+
+    <!-- ---------------- LEGACY ---------------- -->
+    <div class="opt legacy">
+      <div class="head">
+        <h2>RAX Core Legacy</h2>
+        <div class="sub">The ticket view in use today</div>
+      </div>
+      <div class="body">
+        <ul>
+          <li><b>Records what happened to the ticket</b> — queue moves, assignments, status changes, work logged</li>
+          <li><b>Free-text everything</b> — account, category and notes are typed, so nothing groups or counts</li>
+          <li><b>Comment thread</b> as the only narrative, colour-coded by author</li>
+          <li><b>No problem structure</b> — no deviation statement, no IS / IS NOT, no distinctions, no root-cause category</li>
+          <li><b>Knowledge stays in people's heads</b> — a solved ticket teaches the next one nothing</li>
+        </ul>
+      </div>
+      <div class="foot">
+        <a class="launch legacy" href="core_ticket_rebuilt.html" target="_blank" rel="noopener">
+          Open RAX Core Legacy
+          <small>sample ticket · Northwind Bank · opens in a new tab</small>
+        </a>
+      </div>
+    </div>
+
+    <!-- ---------------- KATS ---------------- -->
+    <div class="opt kats">
+      <span class="badge-new">NEW</span>
+      <div class="head">
+        <h2>KATS</h2>
+        <div class="sub">KT AI Enhanced Ticket Support System</div>
+      </div>
+      <div class="body">
+        <ul>
+          <li><b>Records the problem, not just the ticket</b> — Kepner-Tregoe intake: WHAT, WHERE, WHEN, TREND, HOW MANY</li>
+          <li><b>Automatic triage</b> — on open it answers: is this already open elsewhere, seen before, working as designed, is there a known fix</li>
+          <li><b>Controlled facets</b> — customer, component and root-cause category are coded, so they group, count and rank</li>
+          <li><b>Problem records</b> that outlive the ticket, with recurrence counts and blast radius</li>
+          <li><b>Every solved case feeds the Knowledge Base</b> — the next engineer starts where the last one finished</li>
+        </ul>
+      </div>
+      <div class="foot">
+        <a class="launch kats" href="kt_support_demo.html" target="_blank" rel="noopener">
+          Open KATS
+          <small>10 demo tickets · live dashboard · AI agent · opens in a new tab</small>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------------- COMPARISON ---------------- -->
+  <div class="cmp">
+    <h3>What changes for the engineer</h3>
+    <table>
+      <thead>
+        <tr><th>Question on a live ticket</th><th>RAX Core Legacy</th><th>KATS</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="q">Is this issue already open on another ticket?</td>
+          <td class="legacy"><span class="no">Search manually</span> by keyword, if you think to</td>
+          <td class="kats"><span class="yes">Answered on open</span> — ticket number, status, priority, age</td>
+        </tr>
+        <tr>
+          <td class="q">Have we solved this before?</td>
+          <td class="legacy"><span class="no">Ask a colleague</span> or trawl closed tickets</td>
+          <td class="kats"><span class="yes">Ranked matches</span> with the verified fix and what it cost last time</td>
+        </tr>
+        <tr>
+          <td class="q">Is it actually a fault?</td>
+          <td class="legacy"><span class="no">Troubleshoot first</span>, find out later</td>
+          <td class="kats"><span class="yes">Works-as-designed detected</span> — explain and close, don't investigate</td>
+        </tr>
+        <tr>
+          <td class="q">What should I try first?</td>
+          <td class="legacy"><span class="no">Engineer's judgement</span>, unrecorded</td>
+          <td class="kats"><span class="yes">3 ranked causes</span>, each with evidence for and against and one single-variable test</td>
+        </tr>
+        <tr>
+          <td class="q">What breaks us most often?</td>
+          <td class="legacy"><span class="no">Not answerable</span> — root causes are free text</td>
+          <td class="kats"><span class="yes">Pareto by coded category</span>, per customer and fleet-wide</td>
+        </tr>
+        <tr>
+          <td class="q">What does this customer keep hitting?</td>
+          <td class="legacy"><span class="no">Read the ticket list</span></td>
+          <td class="kats"><span class="yes">Customer 360</span> — MTTR trend, recurring issues, open Problems</td>
+        </tr>
+        <tr>
+          <td class="q">How do I hand this over?</td>
+          <td class="legacy"><span class="no">Write it out again</span> from the comment thread</td>
+          <td class="kats"><span class="yes">Handover drafted</span> from the tests you already ran</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <b>Note for the demo.</b> Both pages are self-contained and run offline.
+    The KATS AI agent is a <b>mock</b> — no model is called; every result is deterministic reasoning
+    over the knowledge base, case history and problem register, so the behaviour is reproducible on stage.
+    Sensitive values in the legacy page's Account Management Guidelines (bastion IPs, PasswordSafe reference,
+    escalation contacts) are <b>masked by default</b> — click any <kbd>▉</kbd> block to reveal.
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CORE #251205-00042 — rebuilt</title>
+<style>
+/* ============================================================
+   Self-contained. No CDN, no framework, no build step.
+   Rebuild of the Rackspace CORE ticket view in the KATS language.
+   ============================================================ */
+:root{
+  --bg:#f4f6fb; --panel:#fff; --ink:#16202f; --muted:#63708a; --line:#dde3ee;
+  --cust:#d6274a; --cust-2:#9b1230; --cust-soft:#fdeef1;
+  --supp:#1565d8; --supp-2:#0b3f8f; --supp-soft:#eaf1fd;
+  --clos:#12855a; --clos-soft:#e8f6f0;
+  --warn:#b8690b; --warn-soft:#fdf4e3;
+  --grey-soft:#eff1f5;
+  --radius:10px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1420; --panel:#151d2b; --ink:#e7ecf5; --muted:#93a1bb; --line:#26314a;
+    --cust-soft:#2a1620; --supp-soft:#111f36; --clos-soft:#0f2620;
+    --warn-soft:#2a2113; --grey-soft:#1b2434;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--supp)}
+.wrap{max-width:1500px;margin:0 auto;padding:14px}
+
+/* --- top bar --- */
+.topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:linear-gradient(95deg,var(--supp),var(--supp-2));color:#fff;
+  padding:10px 16px;border-radius:var(--radius);margin-bottom:12px}
+.topbar .brand{font-weight:800;letter-spacing:.3px}
+.topbar nav{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto}
+.topbar nav a{color:#fff;text-decoration:none;font-size:12.5px;
+  padding:5px 9px;border-radius:6px;opacity:.9}
+.topbar nav a:hover{background:rgba(255,255,255,.18);opacity:1}
+.topbar nav a.cta{background:#12855a;font-weight:700;opacity:1}
+
+/* --- ticket head --- */
+.thead{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:12px}
+.thead h1{margin:0 0 4px;font-size:19px;line-height:1.3}
+.thead .sub{color:var(--muted);font-size:13px}
+.pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pill{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;
+  border:1px solid var(--line);background:var(--grey-soft);color:var(--ink)}
+.pill.red{background:var(--cust);color:#fff;border-color:transparent}
+.pill.blue{background:var(--supp);color:#fff;border-color:transparent}
+.pill.amber{background:var(--warn);color:#fff;border-color:transparent}
+.pill.green{background:var(--clos);color:#fff;border-color:transparent}
+
+.readonly{margin-top:10px;padding:8px 12px;border-radius:8px;
+  background:var(--cust-soft);border:1px solid var(--cust);
+  color:var(--cust-2);font-weight:600;font-size:13px}
+
+/* --- SLA strip --- */
+.sla{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:8px;margin-bottom:12px}
+.sla .m{background:var(--panel);border:1px solid var(--line);
+  border-left:3px solid var(--supp);border-radius:8px;padding:8px 11px}
+.sla .m .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.sla .m .v{font-size:19px;font-weight:800;line-height:1.2}
+.sla .m.warn{border-left-color:var(--warn)}
+.sla .m.bad{border-left-color:var(--cust)}
+.sla .m.good{border-left-color:var(--clos)}
+
+/* --- layout --- */
+.cols{display:grid;grid-template-columns:320px 1fr;gap:12px;align-items:start}
+@media(max-width:1000px){.cols{grid-template-columns:1fr}}
+
+.card{background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.card > h2{margin:0;font-size:12.5px;font-weight:800;letter-spacing:.4px;
+  text-transform:uppercase;padding:9px 13px;color:#fff;
+  background:linear-gradient(95deg,var(--supp),var(--supp-2))}
+.card.cust > h2{background:linear-gradient(95deg,var(--cust),var(--cust-2))}
+.card .body{padding:11px 13px}
+
+table.kv{width:100%;border-collapse:collapse}
+table.kv th{text-align:left;font-weight:600;color:var(--muted);
+  font-size:12px;padding:5px 9px;width:42%;vertical-align:top;
+  background:var(--grey-soft);border-bottom:1px solid var(--line)}
+table.kv td{padding:5px 9px;font-size:12.5px;border-bottom:1px solid var(--line);
+  vertical-align:top;word-break:break-word}
+
+/* --- tabs --- */
+.tabs{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:-1px}
+.tabs button{border:1px solid var(--line);border-bottom:none;background:var(--grey-soft);
+  color:var(--muted);font:inherit;font-size:13px;font-weight:600;
+  padding:8px 15px;border-radius:8px 8px 0 0;cursor:pointer}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{background:var(--supp);color:#fff;border-color:var(--supp)}
+.tabs button.kt[aria-selected="true"]{background:var(--clos);border-color:var(--clos)}
+.tabs button .n{display:inline-block;min-width:17px;padding:0 5px;margin-left:6px;
+  border-radius:9px;background:rgba(0,0,0,.16);font-size:11px}
+.panel{background:var(--panel);border:1px solid var(--line);
+  border-radius:0 var(--radius) var(--radius) var(--radius);padding:14px}
+[role="tabpanel"][hidden]{display:none}
+
+/* --- comment timeline (preserves the CORE legend) --- */
+.evt{border:1px solid var(--line);border-radius:9px;margin-bottom:9px;overflow:hidden}
+.evt .meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+  padding:6px 11px;font-size:11.5px;font-weight:600}
+.evt .meta .who{font-weight:800}
+.evt .meta .when{color:inherit;opacity:.75;margin-left:auto}
+.evt .txt{padding:11px 13px;white-space:pre-wrap;font-size:13px;
+  background:var(--panel);border-top:1px solid var(--line)}
+
+/* CORE legend colours, kept 1:1 so the team recognises them */
+.e-rax    .meta{background:#ffaaaa;color:#3b0d13}
+.e-rax    .txt {background:var(--cust-soft)}
+.e-cust   .meta{background:#87cefa;color:#0a2a3d}
+.e-cust   .txt {background:var(--supp-soft)}
+.e-priv   .meta{background:#fff999;color:#3d3300}
+.e-priv   .txt {background:var(--warn-soft)}
+.e-work   .meta{background:#ccffcc;color:#0a3020}
+.e-work   .txt {background:var(--clos-soft)}
+.e-assign .meta{background:#ffdd88;color:#3d2b00}
+.e-state  .meta{background:#e8e8e8;color:#2b3446}
+
+.legend{display:flex;flex-direction:column;gap:4px}
+.legend div{font-size:12px;padding:4px 9px;border-radius:5px;color:#111}
+
+.priv-tag{display:block;text-align:center;font-size:11px;letter-spacing:1px;
+  color:var(--muted);background:var(--grey-soft);padding:3px;font-weight:700}
+
+/* --- data tables --- */
+table.grid{width:100%;border-collapse:collapse;font-size:12.5px}
+table.grid th{background:var(--grey-soft);text-align:left;padding:7px 9px;
+  border-bottom:2px solid var(--line);font-size:11.5px;text-transform:uppercase;
+  letter-spacing:.4px;color:var(--muted)}
+table.grid td{padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+table.grid tr:hover td{background:var(--grey-soft)}
+table.grid .hl{background:var(--warn-soft);font-weight:700}
+table.grid tfoot td{font-weight:800;background:var(--supp-soft)}
+
+/* --- AMG / redaction --- */
+.amg{background:var(--cust-soft);border:1px solid var(--cust);border-radius:9px;padding:13px}
+.amg pre{white-space:pre-wrap;font:12.5px/1.6 ui-monospace,Menlo,Consolas,monospace;margin:0}
+.amg h3{margin:0 0 8px;font-size:14px;color:var(--cust-2)}
+.redacted{background:var(--ink);color:var(--ink);border-radius:3px;padding:0 6px;
+  user-select:none;cursor:pointer}
+.redacted.show{background:var(--warn-soft);color:var(--ink);user-select:text}
+.notice{background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn);
+  border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:11px;font-weight:600}
+
+.ktbox{background:var(--clos-soft);border:1px solid var(--clos);border-radius:9px;padding:14px}
+.ktbox h3{margin:0 0 6px;color:var(--clos);font-size:15px}
+.btn{display:inline-block;border:none;border-radius:7px;padding:8px 14px;
+  font:inherit;font-weight:700;font-size:13px;cursor:pointer;text-decoration:none}
+.btn.green{background:var(--clos);color:#fff}
+.btn.ghost{background:var(--grey-soft);color:var(--ink);border:1px solid var(--line)}
+.map{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+.map th,.map td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left}
+.map th{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+.arrow{color:var(--clos);font-weight:800}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <span class="brand">CORE</span>
+    <nav>
+      <a href="#">Rack</a><a href="#">CORE</a><a href="#">Departments</a>
+      <a href="#">Churn Forecasts</a><a href="#">Reports</a><a href="#">History</a>
+      <a href="#">Account</a><a href="#">Ticket</a>
+      <a href="#kt" class="cta">Open in KATS →</a>
+    </nav>
+  </div>
+
+  <div class="thead">
+    <h1>Ticket #251205-00042 — Request for Implementation Plan and Timeline for OpenStack/Ceph Enhancements</h1>
+    <div class="sub">Northwind Bank (4410022) · CloudBuilders Support · assigned to Alex Mercer</div>
+    <div class="pills">
+      <span class="pill amber">REQUIRE FEEDBACK</span>
+      <span class="pill">Priority: Normal</span>
+      <span class="pill">Severity: Standard</span>
+      <span class="pill">Difficulty: L1</span>
+      <span class="pill">Service Request</span>
+      <span class="pill blue">Segment: Intensive</span>
+      <span class="pill green">Account active</span>
+    </div>
+    <div class="readonly">🔒 This ticket is READ-ONLY because you do not have permission to edit it.</div>
+  </div>
+
+  <div class="sla">
+    <div class="m good"><div class="k">First response</div><div class="v">1h 57m</div></div>
+    <div class="m bad"><div class="k">Idle time</div><div class="v">2d 19h</div></div>
+    <div class="m warn"><div class="k">Resolution time</div><div class="v">&gt; 12d</div></div>
+    <div class="m"><div class="k">Created</div><div class="v" style="font-size:14px">05 Dec 2025 · 3:16am</div></div>
+    <div class="m"><div class="k">Work logged</div><div class="v">15m</div></div>
+    <div class="m"><div class="k">Billed</div><div class="v">$0.00</div></div>
+  </div>
+
+  <div class="cols">
+
+    <!-- ================= LEFT ================= -->
+    <div>
+      <div class="card cust">
+        <h2>Summary</h2>
+        <table class="kv">
+          <tr><th>Queue</th><td>CloudBuilders Support</td></tr>
+          <tr><th>Subject</th><td>Request for Implementation Plan and Timeline for OpenStack/Ceph Enhancements</td></tr>
+          <tr><th>Severity</th><td>Standard</td></tr>
+          <tr><th>Difficulty</th><td>L1</td></tr>
+          <tr><th>Created</th><td>12/05/2025 3:16am</td></tr>
+          <tr><th>First response</th><td>1h 57m</td></tr>
+          <tr><th>Idle time</th><td>2d 19h</td></tr>
+          <tr><th>Resolution time</th><td>&gt; 12d</td></tr>
+          <tr><th>Requester</th><td>Minh Tran</td></tr>
+          <tr><th>Account</th><td>Northwind Bank (4410022)<br><span style="color:var(--clos);font-weight:700">Active</span></td></tr>
+          <tr><th>Segment</th><td>Intensive</td></tr>
+          <tr><th>Service level</th><td>Managed</td></tr>
+          <tr><th>Support team</th><td>Team APAC I1</td></tr>
+          <tr><th>Account mgr</th><td>Grace Lim</td></tr>
+          <tr><th>BDC</th><td>Leo Bass</td></tr>
+          <tr><th>Status</th><td><span class="pill amber">REQUIRE Feedback</span></td></tr>
+          <tr><th>Priority</th><td>Normal</td></tr>
+          <tr><th>Classification</th><td>Service Request</td></tr>
+          <tr><th>Category</th><td>Request for Information: General</td></tr>
+          <tr><th>Assigned</th><td>Alex Mercer</td></tr>
+          <tr><th>Revenue</th><td>None</td></tr>
+          <tr><th>Recipients</th><td>Dang Pham<br>Phuc Le<br>Bao Vo<br>Minh Tran</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Work summary — 2 entries</h2>
+        <table class="kv">
+          <tr><th>Last work logged</th><td>12/15/2025</td></tr>
+          <tr><th>Total time worked</th><td>15 min</td></tr>
+          <tr><th>Total time billed</th><td>0 min</td></tr>
+          <tr><th>Total billed</th><td>$0.00</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>External vendor tickets</h2>
+        <div class="body" style="color:var(--muted);font-size:12.5px">
+          No external vendor ticket linked.
+          <div style="margin-top:8px;display:flex;gap:5px">
+            <select style="flex:1;padding:5px;border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--ink)">
+              <option>AlertLogic</option><option>Jira</option><option>CORE</option>
+              <option>Armor</option><option>Oracle SR</option><option>SAP Incident</option><option>Rimini Case</option>
+            </select>
+            <input placeholder="Ticket ID" style="width:88px;padding:5px;border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--ink)">
+            <button class="btn ghost">Link</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Legend</h2>
+        <div class="body legend">
+          <div style="background:#ffaaaa">Rackspace comment</div>
+          <div style="background:#87cefa">Customer comment</div>
+          <div style="background:#fff999">Private comment</div>
+          <div style="background:#ccffcc">Work</div>
+          <div style="background:#ffdd88">Assignment</div>
+          <div style="background:#e8e8e8">State change</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= RIGHT ================= -->
+    <div>
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true"  aria-controls="p-comments" onclick="tab(this)">Comments <span class="n">7</span></button>
+        <button role="tab" aria-selected="false" aria-controls="p-journal"  onclick="tab(this)">Journal <span class="n">22</span></button>
+        <button role="tab" aria-selected="false" aria-controls="p-work"     onclick="tab(this)">Work <span class="n">2</span></button>
+        <button role="tab" aria-selected="false" aria-controls="p-status"   onclick="tab(this)">Status log <span class="n">8</span></button>
+        <button role="tab" aria-selected="false" aria-controls="p-customer" onclick="tab(this)">Customer</button>
+        <button role="tab" aria-selected="false" aria-controls="p-amg"      onclick="tab(this)">Emergency / AMG</button>
+        <button role="tab" aria-selected="false" aria-controls="p-kt" class="kt" onclick="tab(this)">KT Workflow</button>
+      </div>
+
+      <!-- ---------- COMMENTS ---------- -->
+      <div class="panel" id="p-comments" role="tabpanel">
+        <div style="margin-bottom:11px;display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn ghost" disabled title="You don't have permission.">Add public comment</button>
+          <button class="btn ghost">Add private comment</button>
+        </div>
+
+        <div class="evt e-cust">
+          <div class="meta"><span class="who">Minh Tran</span><span>Customer comment</span><span class="when">05 Dec 2025 · 3:16am</span></div>
+          <div class="txt">Dear Bjorn,
+
+I have discussed this with Mr. Cuong and based on tickets #251118-04001 and #251104-00802, we would like to request your detailed plan and the estimated timeframe required to implement the additional features on our OpenStack environment in 2026, including:
+ - Upgrading OpenStack to the Zed release
+ - Implementing Autoscale
+ - The plan to upgrade Ceph to the Reef
+We look forward to receiving your feedback so that we can coordinate and plan accordingly.
+
+Best regards,
+Minh Tran</div>
+        </div>
+
+        <div class="evt e-priv">
+          <div class="meta"><span class="who">Sam Reeves</span><span>Private comment</span><span class="when">05 Dec 2025 · 5:13am</span></div>
+          <span class="priv-tag">*** PRIVATE ***</span>
+          <div class="txt">I confirm that I have read the AMGs and am following the CHECK process.</div>
+        </div>
+
+        <div class="evt e-rax">
+          <div class="meta"><span class="who">Sam Reeves</span><span>Rackspace comment</span><span class="when">05 Dec 2025 · 5:14am</span></div>
+          <div class="txt">Hi Team,
+
+The request regarding Request for Implementation Plan and Timeline for OpenStack/Ceph Enhancements has been received. I will now pass this ticket over to the appropriate support team to look into this for you. You will be notified of any further updates to this ticket.
+
+If you require any further information or assistance, please feel free to update this ticket. Alternatively, you may contact our support line by phone and reference this ticket number.
+
+Thanks and Regards,
+Sam Reeves
+Support Technician</div>
+        </div>
+
+        <div class="evt e-cust">
+          <div class="meta"><span class="who">Minh Tran</span><span>Customer comment</span><span class="when">07 Dec 2025 · 10:14pm</span></div>
+          <div class="txt">Dear team,
+
+We are still waiting for your feedback on the feature development plan for 2026. Could you list the items that need to be carried out, for example:
+ - Upgrading OpenStack to the Zed
+ - Implementing Autoscale
+ - Ceilometer
+ - Planning to upgrade Ceph to the Reef release
+
+Best Regards!
+Minh Tran</div>
+        </div>
+
+        <div class="evt e-priv">
+          <div class="meta"><span class="who">Chris Doyle</span><span>Private comment</span><span class="when">11 Dec 2025 · 2:55pm</span></div>
+          <span class="priv-tag">*** PRIVATE ***</span>
+          <div class="txt">Hey team,
+
+Can we provide an update regarding the 2 upgrades time lines .. I will get with Bjorn on the Autoscale and Ceilometer.
+
+Thank you,
+
+Cole</div>
+        </div>
+
+        <div class="evt e-rax">
+          <div class="meta"><span class="who">Alex Mercer</span><span>Rackspace comment</span><span class="when">15 Dec 2025 · 12:11am</span></div>
+          <div class="txt">Dear team,
+
+We are currently working on plans to prepare for these upgrades and would appreciate your guidance on a couple of points:
+
+• Which NWB environment should we begin with?
+• While it's noted that the upgrades are planned for early 2026, do you have any tentative week or month in mind?
+
+For reference, the standard ideal upgrade path is outlined below. Should there be any changes, we will ensure the team is informed well in advance.
+
+• OpenStack: Yoga → Zed
+• Ceph: Octopus → Pacific
+• Ceph: Pacific → Quincy
+• Ceph: Quincy → Reef
+• Ubuntu upgrade of OpenStack hosts → 22.04
+• Ubuntu upgrade of Ceph hosts → 22.04
+
+Looking forward to your reply.
+
+Thanks and regards,
+Alex</div>
+        </div>
+
+        <div class="evt e-rax">
+          <div class="meta"><span class="who">Alex Mercer</span><span>Rackspace comment</span><span class="when">15 Dec 2025 · 12:32am</span></div>
+          <div class="txt">As we follow a specific sequence for environments being upgraded, I wanted to double-check so we're aligned. My gut tells me its going to be NORTHPOINT-DATAPLATFORM, but want to be sure.
+
+Thank you,
+Alex</div>
+        </div>
+      </div>
+
+      <!-- ---------- JOURNAL ---------- -->
+      <div class="panel" id="p-journal" role="tabpanel" hidden>
+        <p style="color:var(--muted);font-size:12.5px;margin-top:0">
+          Full audit trail — comments, assignments, queue moves, status changes and work, in order.
+        </p>
+        <table class="grid">
+          <thead><tr><th>When</th><th>Who</th><th>Type</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>05 Dec · 3:16am</td><td>Minh Tran</td><td>Created</td><td>Queue: Consolidated Ticketing API · Severity Standard · Priority Normal · Status New</td></tr>
+            <tr><td>05 Dec · 3:17am</td><td>sdp_production Service Account</td><td>Queue</td><td>Consolidated Ticketing API → Enterprise Services (All Teams)</td></tr>
+            <tr><td>05 Dec · 5:11am</td><td>Sam Reeves</td><td>Assign</td><td>None → Sam Reeves</td></tr>
+            <tr><td>05 Dec · 5:11am</td><td>Sam Reeves</td><td>Status</td><td>New → In Progress</td></tr>
+            <tr><td>05 Dec · 5:13am</td><td>Sam Reeves</td><td>Private comment</td><td>AMG / CHECK confirmation</td></tr>
+            <tr><td>05 Dec · 5:14am</td><td>Sam Reeves</td><td>Assign</td><td>Sam Reeves → None</td></tr>
+            <tr><td>05 Dec · 5:14am</td><td>Sam Reeves</td><td>Status</td><td>In Progress → New</td></tr>
+            <tr><td>05 Dec · 5:14am</td><td>Sam Reeves</td><td>Queue</td><td>Enterprise Services (All Teams) → CloudBuilders Support</td></tr>
+            <tr><td>05 Dec · 5:14am</td><td>Sam Reeves</td><td>Comment</td><td>Acknowledgement to customer</td></tr>
+            <tr><td>07 Dec · 10:14pm</td><td>Minh Tran</td><td>Comment</td><td>Customer chase — still awaiting 2026 plan</td></tr>
+            <tr><td>11 Dec · 2:51pm</td><td>Chris Doyle</td><td>Assign</td><td>None → Bjorn Keller</td></tr>
+            <tr><td>11 Dec · 2:55pm</td><td>Chris Doyle</td><td>Private comment</td><td>Internal chase on upgrade timelines</td></tr>
+            <tr><td>11 Dec · 2:55pm</td><td>Chris Doyle</td><td>Assign</td><td>Bjorn Keller → None</td></tr>
+            <tr><td>11 Dec · 2:55pm</td><td>Chris Doyle</td><td>Status</td><td>New → In Progress</td></tr>
+            <tr><td>15 Dec · 12:09am</td><td>Alex Mercer</td><td>Assign</td><td>None → Alex Mercer</td></tr>
+            <tr><td>15 Dec · 12:11am</td><td>Alex Mercer</td><td>Comment</td><td>Proposed upgrade path + questions to customer</td></tr>
+            <tr><td>15 Dec · 12:11am</td><td>Alex Mercer</td><td>Work</td><td>OS - Product · 10 min · free</td></tr>
+            <tr><td>15 Dec · 12:11am</td><td>Alex Mercer</td><td>Status</td><td class="hl">In Progress → REQUIRE Feedback</td></tr>
+            <tr><td>15 Dec · 12:12am</td><td>Alex Mercer</td><td>Private comment</td><td>AMG / CHECK confirmation</td></tr>
+            <tr><td>15 Dec · 12:32am</td><td>Alex Mercer</td><td>Comment</td><td>Sequencing check — NORTHPOINT-DATAPLATFORM?</td></tr>
+            <tr><td>15 Dec · 12:32am</td><td>Alex Mercer</td><td>Work</td><td>OS - Product · 5 min · free</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ---------- WORK ---------- -->
+      <div class="panel" id="p-work" role="tabpanel" hidden>
+        <table class="grid">
+          <thead><tr><th>Date</th><th>Worker</th><th>Work</th><th>Time spent</th><th>Work billed</th><th>Cost</th></tr></thead>
+          <tbody>
+            <tr><td>12/15/2025</td><td>Alex Mercer</td><td>OS - Product</td><td>10m</td><td>0 minutes</td><td>free</td></tr>
+            <tr><td>12/15/2025</td><td>Alex Mercer</td><td>OS - Product</td><td>5m</td><td>0 minutes</td><td>free</td></tr>
+          </tbody>
+          <tfoot><tr><td>Total</td><td>—</td><td>—</td><td>15 min</td><td>0 min</td><td>$0.00</td></tr></tfoot>
+        </table>
+      </div>
+
+      <!-- ---------- STATUS LOG ---------- -->
+      <div class="panel" id="p-status" role="tabpanel" hidden>
+        <table class="grid">
+          <thead><tr><th>Date</th><th>Time</th><th>Assigned</th><th>Queue</th><th>Category</th><th>Status</th><th>Priority</th><th>Changed by</th></tr></thead>
+          <tbody>
+            <tr><td>12/05/2025</td><td>3:16:55am</td><td>None</td><td>Consolidated Ticketing API</td><td>RFI: General</td><td>New</td><td>Normal</td><td>Minh Tran</td></tr>
+            <tr><td>12/05/2025</td><td>3:17:11am</td><td>None</td><td class="hl">Enterprise Services (All Teams)</td><td>RFI: General</td><td class="hl">New</td><td>Normal</td><td>sdp_production Service Account</td></tr>
+            <tr><td>12/05/2025</td><td>5:11:50am</td><td class="hl">Sam Reeves</td><td>Enterprise Services (All Teams)</td><td>RFI: General</td><td class="hl">In Progress</td><td>Normal</td><td>Sam Reeves</td></tr>
+            <tr><td>12/05/2025</td><td>5:14:13am</td><td class="hl">None</td><td class="hl">CloudBuilders Support</td><td>RFI: General</td><td class="hl">New</td><td>Normal</td><td>Sam Reeves</td></tr>
+            <tr><td>12/11/2025</td><td>2:51:42pm</td><td class="hl">Bjorn Keller</td><td>CloudBuilders Support</td><td>RFI: General</td><td>New</td><td>Normal</td><td>Chris Doyle</td></tr>
+            <tr><td>12/11/2025</td><td>2:55:41pm</td><td class="hl">None</td><td>CloudBuilders Support</td><td>RFI: General</td><td class="hl">In Progress</td><td>Normal</td><td>Chris Doyle</td></tr>
+            <tr><td>12/15/2025</td><td>12:09:43am</td><td class="hl">Alex Mercer</td><td>CloudBuilders Support</td><td>RFI: General</td><td>In Progress</td><td>Normal</td><td>Alex Mercer</td></tr>
+            <tr><td>12/15/2025</td><td>12:11:13am</td><td>Alex Mercer</td><td>CloudBuilders Support</td><td>RFI: General</td><td class="hl">REQUIRE Feedback</td><td>Normal</td><td>Alex Mercer</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ---------- CUSTOMER ---------- -->
+      <div class="panel" id="p-customer" role="tabpanel" hidden>
+        <p style="color:var(--muted);margin-top:0">
+          Account ticket history for <strong>Northwind Bank (4410022)</strong>.
+          In CORE this is a lazy-loaded iframe; here are the linked tickets referenced in this thread.
+        </p>
+        <table class="grid">
+          <thead><tr><th>Ticket</th><th>Subject</th><th>Relation</th></tr></thead>
+          <tbody>
+            <tr><td>251118-04001</td><td>(referenced by customer as basis for this request)</td><td>Cited</td></tr>
+            <tr><td>251104-00802</td><td>(referenced by customer as basis for this request)</td><td>Cited</td></tr>
+            <tr><td>230809-00599</td><td>Ceph disk model DSK-4000-XY replacement programme</td><td>AMG background</td></tr>
+            <tr><td>251126-03001</td><td>FPCHN — VM Build Failure on OpenStack</td><td>Recent account activity</td></tr>
+            <tr><td>250917-02201</td><td>Openstack upgrade</td><td>Recent account activity</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ---------- AMG ---------- -->
+      <div class="panel" id="p-amg" role="tabpanel" hidden>
+        <div class="notice">
+          ⚠ Secrets and personal contact details are <strong>masked by default</strong> in this rebuild —
+          this page gets screen-shared. Click any ▉ block to reveal it locally.
+          <button class="btn ghost" style="margin-left:8px" onclick="revealAll(this)">Reveal all</button>
+        </div>
+        <div class="amg">
+          <h3>Account Management Guidelines — Northwind Bank (4410022)</h3>
+          <pre>Platform Runbook:  github.com/example-org/<span class="redacted">4410022-NWB</span>/blob/main/README.md
+
+All tickets route to the CloudBuilders Support queue immediately. This account has no
+devices except those supported by this team. (Casey Morgan, Nov 18 2022)
+
+Bastion:      dcbastion        ht --no-checks login <span class="redacted">100200</span>
+
+Environment aliases
+  NWB-DEV       server names start dxxotd
+  NWB-PROD      server names start pxxops        (referenced as NORTHPOINT)
+  NWB-DP-PROD   server names start pxxodp        (data platform)
+  NWB-DR        server names start pqxops        (customer calls it OPS-PROD2)
+  NWB-POC       virtualized
+
+Note 18 Aug 2023 — Casey Morgan
+  Customer is replacing disks of a flagged model across their Ceph clusters on vendor
+  advice. See ticket #230809-00599 for background.
+
+Note 04 Jan 2024 — Grace Lim (CSM)
+  Contact the CSM before building additional nodes — contract entitlement must be
+  verified first.
+
+──────────────────────── Managed Kubernetes support ────────────────────────
+
+Primary DC — all managed nodes live under project "NWB-K8S-PROD" in NWB-PROD,
+including the management plane (k8s-mgmt) and workload clusters (k8s-prod3, k8s-app1).
+
+  # VM operations
+  ssh dcbastion → NWB-PROD → sudo su - root → source /root/openrc
+
+  NOTE: openrc holds a service AD user supplied by the customer. The password expires
+        roughly every 30 days; ask the customer to reset and share the new credential.
+
+  Management cluster (k8s-mgmt)      ssh k8sadmin@<span class="redacted">10.50.10.11</span>   → set-mgmt-cluster
+  Workload cluster (k8s-prod3)       ssh k8sadmin@<span class="redacted">10.50.20.21</span>   → set-prod3-cluster
+  Workload cluster (k8s-app1)        ssh k8sadmin@<span class="redacted">10.50.20.39</span>   → set-app1-cluster
+  Workload cluster (k8s-dev1)        ssh k8sadmin@<span class="redacted">10.51.20.36</span>   → set-dev1-cluster   [NWB-DEV]
+
+Secondary DC — managed nodes under project "NWB-K8S-PROD2" in NWB-DR (cluster k8s-dr1).
+  Workload cluster (k8s-dr1)         ssh k8sadmin@<span class="redacted">10.52.30.91</span>   → set-dr1-cluster
+
+Management-plane UI
+  1. ht login <span class="redacted">100200</span> --via DC3 --ssh-args="-A -L &lt;local-port&gt;:localhost:&lt;port2&gt;"
+  2. ssh -D &lt;port2&gt; opsadm@<span class="redacted">10.50.12.13</span> -i ~/.ssh/id_rsa_nwb
+  3. Configure the local port in your SOCKS proxy switcher
+  4. Browse to <span class="redacted">https://k8s.northwind.example/</span>
+  5. Credentials in the password vault, project <span class="redacted">10001</span>
+
+──────────────────────── P0 / P1 escalation contacts ────────────────────────
+
+  PRIMARY   Cloud Operation Team (Head)          <span class="redacted">Q. Duong</span>
+            <span class="redacted">ops-lead@northwind.example</span>    <span class="redacted">+84 900 000 001</span>
+
+  BACKUP    Platform escalation                  <span class="redacted">D. Pham</span>
+            <span class="redacted">ops-a@northwind.example</span>       <span class="redacted">+84 900 000 002</span>
+
+  BACKUP    Platform escalation                  <span class="redacted">T. Nguyen</span>
+            <span class="redacted">ops-b@northwind.example</span>       <span class="redacted">+84 900 000 003</span>
+
+  KEEP INFORMED
+    Cloud Migration Team (Head)                  <span class="redacted">V. Nguyen</span>
+    Cloud Infrastructure Team (Head)             <span class="redacted">C. Nguyen</span>
+    Cloud Escalation Manager (Head)              <span class="redacted">V. Le</span></pre>
+        </div>
+      </div>
+
+      <!-- ---------- KT ---------- -->
+      <div class="panel" id="p-kt" role="tabpanel" hidden>
+        <div class="ktbox">
+          <h3>Open this ticket in KATS</h3>
+          <p style="margin:0 0 4px">
+            CORE captures <em>what happened to the ticket</em> — queue moves, assignments, status changes.
+            It captures nothing about <em>the problem</em>: no deviation statement, no IS / IS NOT,
+            no distinctions, no root-cause category. That is why this thread has run 12 days across
+            four people with 15 minutes of logged work and no structured analysis to hand over.
+          </p>
+          <p style="margin:0 0 10px;color:var(--muted);font-size:12.5px">
+            Field mapping CORE → KATS:
+          </p>
+          <table class="map">
+            <tr><th>CORE field</th><th></th><th>KATS field</th></tr>
+            <tr><td>Ticket # 251205-00042</td><td class="arrow">→</td><td>§0 Ticket #</td></tr>
+            <tr><td>Account — Northwind Bank (4410022)</td><td class="arrow">→</td><td>§0 Customer <em>(controlled entity, not free text)</em></td></tr>
+            <tr><td>Requester — Minh Tran</td><td class="arrow">→</td><td>§0 Primary contact</td></tr>
+            <tr><td>Severity / Priority — Standard / Normal</td><td class="arrow">→</td><td>§0 Priority badge</td></tr>
+            <tr><td>Status — REQUIRE Feedback</td><td class="arrow">→</td><td>§0 Status → <em>Waiting on Customer</em></td></tr>
+            <tr><td>Subject line</td><td class="arrow">→</td><td>§1.1.2 Deviation <em>(needs rewriting as a deviation, not a request)</em></td></tr>
+            <tr><td>Category — RFI: General</td><td class="arrow">→</td><td>§1.2 Category facet</td></tr>
+            <tr><td>Comment thread</td><td class="arrow">→</td><td>Per-step comments + escalation handover</td></tr>
+            <tr><td>Status log</td><td class="arrow">→</td><td>Case timeline (Customer 360)</td></tr>
+            <tr><td>AMG block</td><td class="arrow">→</td><td>§8 Access &amp; Constraints <em>(auto-scrubbed on KB publish)</em></td></tr>
+            <tr><td style="color:var(--cust);font-weight:700">— nothing —</td><td class="arrow">→</td><td style="font-weight:700">§1.2 WHERE · §1.3 WHEN · §1.4 TREND · §10.3 probable causes · §10.7 root cause + category</td></tr>
+          </table>
+          <p style="margin:12px 0 0">
+            <a class="btn green" href="kt_support_demo.html">Open KATS demo →</a>
+            <button class="btn ghost" onclick="alert('In a real integration this POSTs the mapped payload to the KATS API and opens the new ticket.\\n\\nThe mapping above is the contract.')">Import this ticket</button>
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function tab(btn){
+  const bar = btn.parentNode;
+  [...bar.querySelectorAll('[role=tab]')].forEach(b=>{
+    const sel = b === btn;
+    b.setAttribute('aria-selected', sel);
+    document.getElementById(b.getAttribute('aria-controls')).hidden = !sel;
+  });
+}
+// Masked blocks reveal on click — deliberate, one at a time.
+document.addEventListener('click', e => {
+  if (e.target.classList && e.target.classList.contains('redacted')) {
+    e.target.classList.toggle('show');
+  }
+});
+function revealAll(btn){
+  const on = btn.textContent.trim() === 'Reveal all';
+  document.querySelectorAll('.redacted').forEach(el => el.classList.toggle('show', on));
+  btn.textContent = on ? 'Hide all' : 'Reveal all';
+}
+</script>
+</body>
+</html>
