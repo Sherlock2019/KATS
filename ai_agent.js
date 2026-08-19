@@ -38,6 +38,7 @@
 
   const TASKS = {
     triage: 'Triage — is this known, a duplicate, a recurrence, or working as designed?',
+    action_plan: 'Lay out the Kepner-Tregoe sequence, skipping what is already known',
     probable_causes: 'Rank 3 probable causes with evidence and a single-variable test each',
     critique_plan: 'Review the engineer\'s plan and suggest changes',
     root_cause: 'Propose a root cause + category from the evidence',
@@ -321,6 +322,139 @@
       { seq: 5, action: hits.length ? 'If the test refutes, check the next neighbour: ' + hits[0].article.kb_id : 'If the test refutes, widen telemetry and repeat with the next distinction', why: 'Refuted fast is still progress', expected: 'Next hypothesis selected', risk: 'None', est_mins: 20, source: hits.length ? hits[0].article.kb_id : 'KT method' }
     ];
   }
+
+  /* =====================================================================
+   * TASK: action_plan
+   *
+   * Returns the Kepner-Tregoe Problem Analysis sequence, CONTEXTUALISED.
+   * This is not triage restated: triage answers "should I work this",
+   * the action plan answers "in what order do I work it".
+   *
+   * The value is in what it SKIPS. If the KB already carries a verified
+   * cause, steps 4-8 (distinctions → changes → generate → test → rank)
+   * are already done and are marked as such, so the engineer goes straight
+   * to verification. That is the minimum-action objective made concrete.
+   * ================================================================== */
+  const KT_STEPS = [
+    { n: 1, title: 'Stabilize and protect the evidence', where: '§10.1', mins: 20 },
+    { n: 2, title: 'State the deviation', where: '§1.1.1 / §1.1.2', mins: 10 },
+    { n: 3, title: 'Specify it — IS and IS NOT', where: '§1.2 / §1.3 / §1.4 / §1.2.7', mins: 25 },
+    { n: 4, title: 'Identify the distinctions', where: '§1.1.4 / §10.0.3', mins: 20 },
+    { n: 5, title: 'Identify the changes', where: '§6 Changes & History', mins: 15 },
+    { n: 6, title: 'Generate possible causes', where: '§10.3', mins: 20 },
+    { n: 7, title: 'Test each cause against the full specification', where: '§10.3', mins: 25 },
+    { n: 8, title: 'Rank and pick the most probable cause', where: '§10.3', mins: 10 },
+    { n: 9, title: 'Verify the true cause', where: '§10.3 / §10.6', mins: 30 },
+    { n: 10, title: 'Fix, confirm and prevent', where: '§10.7', mins: 45 }
+  ];
+
+  function doActionPlan(ctx) {
+    const t = doTriage(ctx);
+    const r = base('action_plan');
+    r.verdict = t.verdict;
+    r.confidence = t.confidence;
+    r.evidence = t.evidence;
+    r.baseline_mins = t.baseline_mins;
+    r.baseline_label = t.baseline_label;
+
+    const kbEv = t.evidence.find(e => e.type === 'kb');
+    const probEv = t.evidence.find(e => e.type === 'problem');
+    const problem = probEv && global.Problems ? global.Problems.byId(probEv.id) : null;
+    const kb = kbEv ? kbById(kbEv.id) : null;
+    const src = problem ? problem.problem_id : (kb ? kb.kb_id : null);
+    const comp = ctx.service_component || 'the affected component';
+
+    // How much of the KT sequence is already answered by what we know?
+    const known = t.verdict === 'known_error' || t.verdict === 'recurrence';
+    const wad = t.verdict === 'works_as_designed';
+
+    const detail = {
+      1: known
+        ? 'Apply the documented containment from ' + src + ': ' +
+          ((problem && problem.workaround) || (kb && kb.workaround) || 'see the article') +
+          '. Capture state first so the evidence survives.'
+        : 'Contain the impact on ' + comp + ' and snapshot configs, versions, counters and logs before changing anything. Freeze unrelated changes.',
+      2: ctx.deviation
+        ? 'Already stated: "' + String(ctx.deviation).slice(0, 120) + '". Confirm it names an object and a defect, and contains no theory.'
+        : 'Write one sentence: what should happen, and what happens instead. No causes yet.',
+      3: 'Bound it on WHAT / WHERE / WHEN / EXTENT. Record the healthy comparables as the IS NOT set — ' +
+         (ctx.site ? 'you have ' + ctx.site + ' affected; name a site or node that is NOT.' : 'name what is comparable but working.'),
+      4: known
+        ? 'ALREADY KNOWN from ' + src + ': ' +
+          ((kb && kb.distinctions && kb.distinctions[0])
+            ? kb.distinctions[0].dimension + ' — IS ' + kb.distinctions[0].is + ' / IS NOT ' + kb.distinctions[0].is_not
+            : 'see the documented distinction') +
+          '. Confirm it holds here rather than re-deriving it.'
+        : 'List every way the IS differs from the IS NOT — site, node, image, version, config, tenant, timing.',
+      5: known
+        ? 'The documented trigger is on record. Confirm the same change class applies to this occurrence.'
+        : 'For each distinction, what changed and when relative to the deviation? Include changes believed harmless.',
+      6: known
+        ? 'ALREADY KNOWN: ' + ((problem && problem.root_cause_statement) || (kb && kb.root_cause) || '').slice(0, 160) +
+          '. Do not regenerate causes — go to verification.'
+        : 'Derive candidates from the distinctions and changes above. Use §10.3 to rank three.',
+      7: known
+        ? 'Already validated against the specification when ' + src + ' was raised.'
+        : 'For each candidate ask: does it explain the IS AND the IS NOT? Note every assumption it needs to survive.',
+      8: known
+        ? 'Single candidate carried over from ' + src + '.'
+        : 'Pick the cause explaining most with fewest assumptions, and cheapest to test.',
+      9: known
+        ? 'Apply the documented fix on ONE target and confirm the symptom toggles off: ' +
+          ((kb && kb.verification && kb.verification.test) || 're-run the reproduction')
+        : 'Change ONE variable, reversibly, on ONE target. Confirm the symptom toggles off — and back on if reverted.',
+      10: known
+        ? 'Apply the permanent fix from ' + src + ', re-run the reproduction, then link this case to the Problem so recurrence is counted.'
+        : 'Apply the minimal safe correction, re-run the reproduction, verify health, add monitoring, publish the KB article.'
+    };
+
+    r.plan_steps = KT_STEPS.map(s => {
+      let status = 'not-started', shortcut = '', mins = s.mins;
+      if (wad && s.n >= 4 && s.n <= 9) { status = 'n/a'; shortcut = 'not a fault'; mins = 0; }
+      else if (known && s.n >= 4 && s.n <= 8) { status = 'done'; shortcut = 'known from ' + src; mins = 0; }
+      else if (ctx.deviation && s.n === 2) { status = 'done'; mins = 0; }
+      return {
+        n: s.n, title: s.title, where: s.where, status, shortcut,
+        todo: wad && s.n === 10
+          ? 'No fix required. Send the customer the documented behaviour and the correct validation method, set root cause = works-as-designed, and close.'
+          : detail[s.n],
+        why: KT_WHY[s.n], est_mins: mins, owner: '', notes: ''
+      };
+    });
+
+    const remaining = r.plan_steps.filter(s => s.status === 'not-started');
+    r.actions = remaining.map((s, i) => ({
+      seq: i + 1, action: s.title, why: s.why, expected: s.todo,
+      risk: s.n === 9 ? 'Low — single target, reversible' : 'None',
+      est_mins: s.est_mins, source: src || 'KT method'
+    }));
+
+    const skipped = r.plan_steps.length - remaining.length;
+    r.headline = wad
+      ? 'Works as designed — ' + skipped + ' of 10 KT steps do not apply. Confirm, explain, close.'
+      : known
+        ? 'Known cause from ' + src + ' — ' + skipped + ' of 10 KT steps are already answered. Go straight to verification.'
+        : 'No prior knowledge — run the full 10-step KT sequence. ' + remaining.length + ' steps to work.';
+    r.reasoning = t.reasoning.concat([
+      'Steps 4-8 (distinctions → changes → generate → test → rank) are the expensive middle of KT.',
+      known ? 'They are skipped here because ' + src + ' already carries a validated cause — that is where the time saving comes from.'
+            : 'They cannot be skipped here: nothing in the KB or the customer history matches this signature.'
+    ]);
+    return finish(r);
+  }
+
+  const KT_WHY = {
+    1: 'A fix applied too early destroys the distinctions you need.',
+    2: 'If you cannot state the deviation in one sentence you cannot test it.',
+    3: 'The IS NOT half is what makes a cause testable.',
+    4: 'The cause lives inside a distinction.',
+    5: 'Anchoring changes to distinctions separates cause from coincidence.',
+    6: 'Causes derived from the specification are testable; causes from memory are guesses.',
+    7: 'A cause needing three assumptions to survive is not your cause.',
+    8: 'Fewest actions to a confident answer, not the most thorough investigation.',
+    9: 'Correlation is not confirmation. If it does not toggle, you have not found it.',
+    10: 'A fix that is not written down is a fix you will pay for again.'
+  };
 
   /* =====================================================================
    * TASK: probable_causes
@@ -718,6 +852,7 @@
    * ================================================================== */
   const HANDLERS = {
     triage: doTriage,
+    action_plan: doActionPlan,
     probable_causes: doProbableCauses,
     critique_plan: doCritique,
     root_cause: doRootCause,
