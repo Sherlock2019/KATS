@@ -1,8 +1,9 @@
 # KATS — KT AI Enhanced Ticket Support System
 
-A support ticket workflow built on the **Kepner-Tregoe** problem-analysis method, with an AI agent
-that reads your knowledge base, customer history and problem register to find the **shortest path to
-resolution** — including telling you not to troubleshoot at all.
+A support ticket workflow built on the **Universal Troubleshooting Action Plan** — a 10-step method
+rooted in Kepner-Tregoe problem analysis — with an AI agent that reads your knowledge base, customer
+history and problem register to find the **shortest path to resolution**, including telling you not
+to troubleshoot at all.
 
 > **Proof of concept.** Runs entirely in a browser, offline, from a single file.
 > The AI agent is a **mock** — no model is called. See [Is the AI real?](#is-the-ai-real)
@@ -56,29 +57,79 @@ engineer who wrote it.
 
 ---
 
+## The Universal Troubleshooting Action Plan
+
+Domain-neutral — it works for IT, cloud, AI, infrastructure, engineering, manufacturing, operations
+and business processes:
+
+**Protect → Prioritize → Mitigate → Define → Isolate → Hypothesize → Eliminate → Verify → Correct → Prevent**
+
+| # | Phase | Step | Core question |
+|---|---|---|---|
+| 1 | PROTECT | Assess impact and protect evidence | What is the impact, and what evidence must we preserve? |
+| 2 | PRIORITIZE | Prioritize and stabilize | What must we protect or restore first? |
+| 3 | MITIGATE | Find a safe workaround or mitigation | How can we reduce the damage now without hiding the cause? |
+| 4 | DEFINE | State and bound the deviation | What exactly is wrong, and what should be happening instead? |
+| 5 | SPECIFY | Specify the problem — IS / IS NOT | Where does it occur, and where could it occur but does not? |
+| 6 | ISOLATE | Isolate through distinctions and changes | What is different, and what changed around that difference? |
+| 7 | HYPOTHESIZE | Generate possible causes | What mechanisms could produce exactly this pattern? |
+| 8 | ELIMINATE | Test, eliminate and rank causes | Which causes explain all the evidence with fewest assumptions? |
+| 9 | VERIFY | Verify the true cause | Can changing this factor predictably make it appear or disappear? |
+| 10 | CORRECT & PREVENT | Correct, confirm and prevent recurrence | Did we really fix it, why was it possible, and how do we stop it? |
+
+Every step carries its status, owner and result notes, and is exported with the ticket.
+
+### The funnel
+
+```
+IMPACT → PRIORITIZE → MITIGATE → DEFINE → IS / IS NOT → ISOLATE →
+DISTINCTIONS + CHANGES → POSSIBLE CAUSES → ELIMINATE → MOST PROBABLE CAUSE →
+VERIFY → ROOT CAUSE → CORRECT → PREVENT
+```
+
+The objective is not an ever-growing list of possibilities. It is to **continuously reduce the search
+space until only a defensible cause remains**. Two funnels run in parallel — operational
+(max impact → min impact) and diagnostic (max uncertainty → min uncertainty).
+
+### Four governing rules
+
+1. **Impact before analysis.** If people, customers, safety, revenue or data are being harmed,
+   contain first — but preserve enough evidence to investigate afterwards.
+2. **Mitigation is not root cause.** A restart, rollback, failover or workaround may restore service
+   without explaining anything. Keep workaround, corrective action and root cause separate.
+3. **Troubleshooting is progressive isolation.** *All customers? No — only Europe. All European
+   systems? No — cluster B. All cluster B nodes? No — newly provisioned.* Keep dividing.
+4. **A cause must explain the IS *and* the IS NOT** — why here and not there, why then, why that
+   extent. This is the falsification step that "5 Whys" has no equivalent for.
+
+### Universal Action Record
+
+A live 20-field one-page summary — issue, expected state, impact, severity, blast radius, mitigation,
+IS, IS NOT, distinctions, changes, hypotheses, evidence for and against, next discriminating test,
+most probable cause, verification, corrective action, prevention, owner and status. Every row is
+**derived** from the sections above, so it can never drift out of step with the ticket.
+
+---
+
 ## What you get
 
-### 1. Kepner-Tregoe problem analysis
-
-Structured intake — **WHAT, WHERE, WHEN, TREND, HOW MANY** — instead of a free-text description.
-**IS / IS NOT** bounding, because the cause must explain both what is broken *and* what is comparable
-but healthy. **A/B distinction** against a working twin. **Single-variable testing**, so a result
-actually proves something. A **5-Whys causal chain** with evidence required at every link.
-
-### 2. AI agent — inference on every step
+### AI agent — inference on every step
 
 **Triage runs automatically** the moment a ticket opens, and answers four questions outright:
 
 | Question | Answer |
 |---|---|
-| Same issue already open? | **YES — 2 open** · ticket number, status, priority, age |
+| Same issue already open? | **YES — 2 open** · ticket number, status, severity, age |
 | Seen before? | **YES — 8 solved previously** · what each one cost |
 | Working as designed? | **No — genuine fault** (or *YES — no defect*, don't troubleshoot) |
 | Known fix available? | **YES — KB-2025-0001** · match score and reuse count |
 
-Then: **3 ranked probable causes**, each with evidence for, evidence against, one single-variable
-test and an expected result. Plus plan critique, root-cause inference, KB-article drafting,
-escalation handover drafting, Problem clustering, and a fleet health diagnostic.
+**Propose action plan** fills the 10 steps from this ticket, the KB and the customer's history — and
+crucially **marks what is already answered**. A known error skips steps 6–8 (isolate → hypothesize →
+eliminate), the expensive middle of any investigation. A works-as-designed verdict marks them *n/a*.
+
+Also: 3 ranked probable causes with evidence for and against, plan critique, root-cause inference,
+KB-article drafting, escalation handover drafting, Problem clustering, and a fleet health diagnostic.
 
 Every plan is **costed against what the issue took the first time** — the demo's headline recurrence
 drops from **215 minutes to a 40-minute plan**.
@@ -86,17 +137,17 @@ drops from **215 minutes to a 40-minute plan**.
 Two rules the agent never breaks: **it proposes, you decide** — nothing changes ticket state on its
 own; and every claim **shows its evidence**, with expandable reasoning.
 
-### 3. Smart Knowledge Base — memory that compounds
+### Smart Knowledge Base — memory that compounds
 
-One schema for every article, so a retrieval agent can actually search it.
+One schema for every article, so a retrieval agent can search it.
 **Error-signature normalization** strips timestamps, UUIDs, request IDs and host IPs while *keeping*
 meaningful constants, so the same fault matches twice. **Explainable search** shows a match score and
 *why* it matched. **Automatic de-duplication** bumps an article's reuse count instead of creating a
 near-twin. **Secret scrubbing** redacts passwords, keys, tokens, SSH targets and emails before
 publishing — and blocks publishing if you switch it off. **Verified-fix gating** stops an unverified
-article outranking a proven one.
+article outranking a proven one. Searches return **the top 3 findings**, not a wall of results.
 
-### 4. Problem & recurrence management
+### Problem & recurrence management
 
 **Problem records outlive the ticket** and own the root cause; incidents merely reference them.
 **Recurrence counting** is the evidence that funds a permanent fix. **Known Error** state for a
@@ -105,42 +156,35 @@ and the hours spent across all linked cases. **Auto-clustering** proposes unlink
 signature as one Problem. A **coded root-cause taxonomy**, so *"what breaks us most often"* becomes a
 chart rather than an opinion.
 
-### 5. Customer & fleet intelligence
+### Customer & fleet intelligence
 
 **Customer 360** — case history, MTTR trend, recurring issues, open Problems, top failing components.
 **Related cases** across four relation types. **Case timeline** as the handover artefact.
-**Operations dashboard** — 1 day / 3 days / 1 week / 30 days, opened vs solved, pending, P1s, MTTR,
+**Operations dashboard** — 1 day / 3 days / 1 week / 30 days, opened vs solved, pending, S1s, MTTR,
 top 10 customers / issue types / infrastructure, and an **infrastructure health score** with the
 factors costing points and a prioritised remediation plan.
 
-<details>
-<summary><b>Full capability list (40 items)</b></summary>
+---
 
-**Kepner-Tregoe** — structured WHAT/WHERE/WHEN/TREND/HOW MANY intake · IS / IS NOT bounding ·
-A/B distinction against a working twin · single-variable testing · 5-Whys causal chain with evidence ·
-impacted nodes and VMs listed individually, healthy ones marked as the IS NOT set
+## Conventions
 
-**AI agent** — automatic triage · duplicate & recurrence detection with ticket number, status,
-priority and age · works-as-designed verdict · 3 ranked probable causes with tests · plan review that
-shortens your plan · root-cause inference with coded category and causal chain · handover drafting ·
-KB-article drafting · fleet health diagnostic · time saved quantified · proposes-you-decide with
-evidence shown
+**Severity, not priority** — severity describes *what is broken*, not how fast we answer:
 
-**Smart KB** — one schema · error-signature normalization · explainable search · automatic
-de-duplication · secret scrubbing with publish blocking · verified-fix gating · reuse tracking ·
-vector-search ready with assembled embedding field and JSON export
+| | |
+|---|---|
+| **S1** | Full system down |
+| **S2** | Features not working |
+| **S3** | Performance issues |
 
-**Problems** — records outlive the ticket · recurrence counting · Known Error state · blast radius
-and cost · auto-clustering · coded root-cause taxonomy
+**Blast radius** is a controlled facet — *All users* / *Internal users* / *Specific user*. Naming who
+IS affected implies who IS NOT, which is where the KT specification starts.
 
-**Intelligence** — Customer 360 · related cases (4 relation types) · case timeline · operations
-dashboard with 5 time ranges · top 10 customers / issue types / infrastructure · infrastructure
-health score
+**Ticket numbers** are generated as `CUSTOMER-LOCATION-NUMBER` — e.g. `HNB-HN-0042`. Changing the
+customer or site rebuilds the prefix around the same sequence number rather than burning a new one.
 
-**Workflow** — colour-coded ownership (red = customer input, blue = support input) · KB-readiness
-meter · comments on every step · autosave and draft restore · full ticket export as JSON
-
-</details>
+**Section colour = ownership.** Red sections are customer input, blue are support input, green is
+closure. Search sections (§9.3) sit **before** the action plan (§10), because you search before you
+troubleshoot.
 
 ---
 
@@ -148,7 +192,7 @@ meter · comments on every step · autosave and draft restore · full ticket exp
 
 | Question an engineer asks | Traditional ticket tool | KATS |
 |---|---|---|
-| Is this already open on another ticket? | Search manually, if you think to | **Answered on open** — ticket number, status, priority, age |
+| Is this already open on another ticket? | Search manually, if you think to | **Answered on open** — ticket number, status, severity, age |
 | Have we solved this before? | Ask a colleague, trawl closed tickets | **Ranked matches** with the verified fix and what it cost last time |
 | Is this even a fault? | Troubleshoot first, find out later | **Works-as-designed detected** — explain and close |
 | What should I try first? | Engineer's judgement, unrecorded | **3 ranked causes**, each with evidence and one single-variable test |
@@ -169,7 +213,7 @@ The design goal is **fewest actions and fewest minutes to a correct answer** —
 | **Team leads** | Recurrence counts and cost-per-Problem — the argument for funding a permanent fix |
 | **Service delivery managers** | Customer 360: MTTR trend, open Problems, what this account keeps hitting |
 | **Operations / SRE** | Fleet dashboard with an infrastructure health score and prioritised remediation |
-| **New joiners** | The KT method is built into the form, so the structure teaches the method |
+| **New joiners** | The method is built into the form, so the structure teaches the method |
 
 ---
 
@@ -183,14 +227,15 @@ The design goal is **fewest actions and fewest minutes to a correct answer** —
 | `kt_support_v8.html` | Source of the demo (needs the JS modules beside it) |
 | `kb_database.js` | KB schema, 12 seeded articles, search, dedupe, secret scrubbing |
 | `kt_data.js` | Customers, Cases, Problems (the ITIL spine) + dashboard analytics |
-| `ai_agent.js` | The AI agent layer — **mock**, with the real contract |
-| `demo_tickets.js` | 10 fully-populated demo tickets, each with a related case |
+| `ai_agent.js` | The AI agent layer — **mock**, with the real contract, and the shared 10-step plan |
+| `demo_tickets.js` | 10 fully-populated demo tickets, each with a related case and a filled plan |
 | `build_demo.js` | Bundles everything into the single standalone file |
 | `start.sh` | Serves it and opens a browser |
 
-**Demo data:** 5 customers · 100+ cases · 6 Problem records · 12 KB articles · 10 demo tickets
-covering every triage verdict (known error, recurrence, works-as-designed, new investigation).
-Recent activity is synthesised **relative to today**, so the dashboard never goes stale.
+**Demo data:** 5 customers · 100+ cases · 6 Problem records · 12 KB articles · 10 demo tickets with
+**all 10 action-plan steps filled** (84 done, 7 not started, 6 in progress, 3 n/a), covering every
+triage verdict — known error, recurrence, works-as-designed, new investigation. Recent activity is
+synthesised **relative to today**, so the dashboard never goes stale.
 
 ### Rebuilding after an edit
 
@@ -201,27 +246,6 @@ node build_demo.js      # re-inlines everything into kt_support_demo.html
 
 The build **fails loudly** if any external URL or unresolved local reference survives, so a broken
 bundle can't ship silently.
-
----
-
-## The method, in four steps
-
-KATS is a shell around Kepner-Tregoe Problem Analysis. Its central idea: a problem is a **deviation
-from expected performance**, and the cause must explain **both** what IS happening and what IS NOT.
-
-1. **Describe the deviation** — one sentence for what should happen, one for what does. No theories.
-2. **Bound it** — WHERE, WHEN, TREND, HOW MANY. For each, record what is affected *and* what is
-   comparable but healthy.
-3. **Find the distinction** — put the broken case beside a working twin. The shortest list of
-   differences is your candidate cause list.
-4. **Test one variable** — reversibly, on one target. If the symptom toggles with it, that's your
-   root cause. Change two things and you've proven nothing.
-
-That second half of step 1 is what most teams skip, and it's why KT beats "5 Whys" on real incidents:
-5 Whys assumes a single linear chain and never tests alternatives, so it walks you confidently to a
-plausible but wrong answer.
-
-Further reading: [Beyond 5 Whys — Kepner-Tregoe](https://kepner-tregoe.com/blogs/beyond-5-whys-problem-solving-skills-for-real-life/)
 
 ---
 
@@ -241,8 +265,8 @@ Swap a single function — `AIAgent._infer()` — for a real LLM call, or set
 `AIAgent.configure({ mode: 'api', endpoint })`, and all eight agent tasks keep working, because the
 UI only ever consumes the `AIResult` shape.
 
-The eight tasks: `triage`, `probable_causes`, `critique_plan`, `root_cause`, `kb_draft`, `handover`,
-`cluster`, `infra_health`.
+The eight tasks: `triage`, `action_plan`, `probable_causes`, `critique_plan`, `root_cause`,
+`kb_draft`, `handover`, `cluster`, `infra_health`.
 
 ### Making it genuinely intelligent
 
@@ -273,6 +297,8 @@ This is a **proof of concept**, honestly labelled:
   KB/case API endpoints wired to a real backend; the POST paths exist and are tested.
 - Search is lexical, not semantic.
 - The dashboard's recent activity is synthesised relative to today, so the demo never goes stale.
+- The UI field is `severity`, but stored case and KB records still use `priority` as the schema key —
+  renaming it across 100+ seeded records was not worth the risk for a PoC.
 
 ## License
 
