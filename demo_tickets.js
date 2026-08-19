@@ -39,11 +39,11 @@
         error_signature_raw: 'No port found in network None with IP address 169.254.169.254'
       },
       fields: {
-        ticketNumber: 'HNB-HN-0001', state: 'In Progress', priority: '1', escalation: 'L2',
+        ticketNumber: 'HNB-HN-0001', state: 'In Progress', severity: '2', escalation: 'L2',
         ticketOwner: 'Bob Builder', supportLevel: 'L2',
         customerId: 'hn-bank', company: 'core-banking / proj-rocket',
         contactName: 'Linh Tran', contactDetails: 'linh.tran@hnbank.vn / +84-903-112-244 / Teams',
-        custSeverity: 'Critical — 100% of new Windows VM builds fail in HN',
+        blastRadius: 'specific-user',
         custRef: 'CHG-2026-0871',
         taskGoal: 'Build 12 new Windows Server 2022 VMs in HN for the quarterly core-banking capacity increase.',
         tempFixSummary: 'Builds redirected to HCMC and Windows images launched with --config-drive true. Restores delivery for the customer while HN metadata is broken. Does not fix HN.',
@@ -203,11 +203,11 @@
         error_signature_raw: 'ovn-northd Raft leader election; port binding timed out after 300 seconds'
       },
       fields: {
-        ticketNumber: 'HNB-HN-0002', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'HNB-HN-0002', state: 'In Progress', severity: '1', escalation: 'L3',
         ticketOwner: 'Grace Git', supportLevel: 'L3',
         customerId: 'hn-bank', company: 'core-banking / security-uplift',
         contactName: 'Minh Vu', contactDetails: 'minh.vu@hnbank.vn / +84-908-773-901 / Teams',
-        custSeverity: 'Critical — intermittent connectivity loss across HN tenant networks',
+        blastRadius: 'all-users',
         custRef: 'CHG-2026-0904',
         taskGoal: 'Roll out the new PCI-DSS security-group ruleset (about 4,000 rules) across all HN tenant networks.',
         tempFixSummary: 'Bulk push halted at rule 2,100. Remaining rules deferred. Connectivity recovered within 6 minutes of stopping the script.',
@@ -339,11 +339,11 @@
         error_signature_raw: 'security group rule added but traffic still blocked'
       },
       fields: {
-        ticketNumber: 'HCC-HCMC-0003', state: 'In Progress', priority: '3', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0003', state: 'In Progress', severity: '3', escalation: 'none',
         ticketOwner: 'Charlie Checker', supportLevel: 'L1',
         customerId: 'hcmc-commerce', company: 'storefront / web-tier',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
-        custSeverity: 'Medium — customer believes firewall changes are not being applied',
+        blastRadius: 'specific-user',
         custRef: 'REQ-2026-4471',
         taskGoal: 'Open TCP 8443 from the web tier to the new payment service and verify connectivity immediately.',
         tempFixSummary: 'None applied. No fault present — the platform is behaving within its documented envelope.',
@@ -472,11 +472,11 @@
         error_signature_raw: 'HEALTH_WARN pool nearfull POOL_NEAR_FULL ENOSPC creating volume'
       },
       fields: {
-        ticketNumber: 'DC1S-DC1-0004', state: 'In Progress', priority: '1', escalation: 'L2',
+        ticketNumber: 'DC1S-DC1-0004', state: 'In Progress', severity: '2', escalation: 'L2',
         ticketOwner: 'Heidi Hash', supportLevel: 'L2',
         customerId: 'dc1-shared', company: 'analytics-platform / spark-cluster',
         contactName: 'Hoa Pham', contactDetails: 'hoa.pham@dc1shared.vn / +84-905-224-118 / Slack #dc1-storage',
-        custSeverity: 'Critical — analytics cluster cannot provision new volumes',
+        blastRadius: 'all-users',
         custRef: 'CHG-2026-0912',
         taskGoal: 'Provision 40 × 500GB volumes for the new Spark analytics cluster in DC1.',
         tempFixSummary: 'New volume requests routed to ceph-pool-hdd-01 (54% used). Analytics cluster provisioned on HDD with reduced IOPS while SSD capacity is reclaimed.',
@@ -607,11 +607,11 @@
         error_signature_raw: '401 Unauthorized token revoked'
       },
       fields: {
-        ticketNumber: 'DC1S-DC1-0005', state: 'In Progress', priority: '2', escalation: 'L2',
+        ticketNumber: 'DC1S-DC1-0005', state: 'In Progress', severity: '2', escalation: 'L2',
         ticketOwner: 'Alice Verify', supportLevel: 'L2',
         customerId: 'dc1-shared', company: 'analytics-platform / ci-pipeline',
         contactName: 'Hoa Pham', contactDetails: 'hoa.pham@dc1shared.vn / +84-905-224-118 / Slack',
-        custSeverity: 'High — nightly provisioning pipeline fails mid-run',
+        blastRadius: 'internal-users',
         custRef: 'CHG-2026-0899',
         taskGoal: 'Run the nightly automated provisioning pipeline that builds and tears down 60 test instances.',
         tempFixSummary: 'Pipeline pinned to controller-dc1-01 through the load balancer. Jobs complete, but the deployment has no redundancy while pinned.',
@@ -742,11 +742,11 @@
         error_signature_raw: 'DHCPDISCOVER no address available lease allocation failed'
       },
       fields: {
-        ticketNumber: 'HCC-HCMC-0006', state: 'In Progress', priority: '2', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0006', state: 'In Progress', severity: '2', escalation: 'none',
         ticketOwner: 'Dave Debugger', supportLevel: 'L2',
         customerId: 'hcmc-commerce', company: 'storefront / app-tier',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
-        custSeverity: 'High — cannot scale the application tier reliably',
+        blastRadius: 'specific-user',
         custRef: 'CHG-2026-0907',
         taskGoal: 'Scale the application tier from 8 to 28 instances on subnet net-app-02 ahead of the sales campaign.',
         tempFixSummary: 'Subnet MTU reverted to 1500 and instances booted in batches of 3. Scaling completes, but jumbo frames are lost and boots are slow.',
@@ -877,11 +877,11 @@
         error_signature_raw: 'MessagingTimeout: Timed out waiting for a reply to message ID'
       },
       fields: {
-        ticketNumber: 'HNB-HN-0007', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'HNB-HN-0007', state: 'In Progress', severity: '1', escalation: 'L3',
         ticketOwner: 'Frank Fixer', supportLevel: 'L3',
         customerId: 'hn-bank', company: 'core-banking / capacity-expansion',
         contactName: 'Minh Vu', contactDetails: 'minh.vu@hnbank.vn / +84-908-773-901 / Teams',
-        custSeverity: 'Critical — scale, resize and migration operations all failing',
+        blastRadius: 'all-users',
         custRef: 'CHG-2026-0918',
         taskGoal: 'Add 8 new compute nodes to the HN cluster and rebalance workloads onto them.',
         tempFixSummary: 'All OpenStack services pointed at the single healthy RabbitMQ node (rabbit@node1). Operations succeed but the messaging layer has no redundancy.',
@@ -1012,11 +1012,11 @@
         error_signature_raw: 'ping statistics packet loss TCP retransmits elevated'
       },
       fields: {
-        ticketNumber: 'MSC-HN-0008', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'MSC-HN-0008', state: 'In Progress', severity: '1', escalation: 'L3',
         ticketOwner: 'Frank Fixer', supportLevel: 'SRE',
         customerId: 'multisite', company: 'dr-platform / cross-site-replication',
         contactName: 'Duc Hoang', contactDetails: 'duc.hoang@multisite.vn / +84-902-889-771 / Teams',
-        custSeverity: 'Critical — DR replication lagging, RPO at risk',
+        blastRadius: 'all-users',
         custRef: 'CHG-2026-0921',
         taskGoal: 'Complete the quarterly DR failover test between HN and HCMC within the agreed RPO of 5 minutes.',
         tempFixSummary: 'Degraded LAG member administratively removed. Link runs at reduced bandwidth (3 of 4 members) but with zero loss. Replication caught up within 20 minutes.',
@@ -1147,11 +1147,11 @@
         error_signature_raw: 'listener stuck in PENDING_UPDATE provisioning_status'
       },
       fields: {
-        ticketNumber: 'DC2S-DC2-0009', state: 'In Progress', priority: '2', escalation: 'none',
+        ticketNumber: 'DC2S-DC2-0009', state: 'In Progress', severity: '2', escalation: 'none',
         ticketOwner: 'Eve Eventloop', supportLevel: 'L2',
         customerId: 'dc2-shared', company: 'batch-platform / ingest-lb',
         contactName: 'Tuan Le', contactDetails: 'tuan.le@dc2shared.vn / +84-907-441-662 / Email',
-        custSeverity: 'High — cannot update load balancer configuration',
+        blastRadius: 'specific-user',
         custRef: 'REQ-2026-4520',
         taskGoal: 'Add a new HTTPS listener on port 8443 to the ingest load balancer ahead of the batch platform release.',
         tempFixSummary: 'None applied yet — root cause not yet identified. Customer is using the existing port 443 listener as an interim path.',
@@ -1283,11 +1283,11 @@
         error_signature_raw: 'Internal Server Error /auth/websso/'
       },
       fields: {
-        ticketNumber: 'HCC-HCMC-0010', state: 'In Progress', priority: '3', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0010', state: 'In Progress', severity: '2', escalation: 'none',
         ticketOwner: 'Judy Java', supportLevel: 'L2',
         customerId: 'hcmc-commerce', company: 'storefront / platform-access',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
-        custSeverity: 'Medium — newly onboarded staff cannot access the dashboard',
+        blastRadius: 'internal-users',
         custRef: 'REQ-2026-4533',
         taskGoal: 'Onboard 14 new platform engineers so they can access Horizon via corporate SSO.',
         tempFixSummary: 'Affected users granted a temporary direct role assignment, bypassing federated mapping. They can log in, but outside the normal SSO governance model.',

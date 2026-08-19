@@ -2217,7 +2217,7 @@
       1: 'Record severity, blast radius and who is affected. ' +
          (ctx.site ? 'Impact is visible at ' + ctx.site + '. ' : '') +
          'Snapshot logs, configs, versions and counters BEFORE any change — mitigation destroys evidence.',
-      2: 'Priority is currently P' + (ctx.priority || '?') + '. Decide what must be protected or restored first: ' +
+      2: 'Severity is S' + (ctx.priority || '?') + (ctx.blast_radius ? ', blast radius ' + ctx.blast_radius : '') + '. Decide what must be protected or restored first: ' +
          'customer service, data integrity, or the remaining healthy capacity.',
       3: known
         ? 'A proven mitigation exists in ' + src + ': ' +
@@ -2770,11 +2770,11 @@
         error_signature_raw: 'No port found in network None with IP address 169.254.169.254'
       },
       fields: {
-        ticketNumber: 'HNB-HN-0001', state: 'In Progress', priority: '1', escalation: 'L2',
+        ticketNumber: 'HNB-HN-0001', state: 'In Progress', severity: '2', escalation: 'L2',
         ticketOwner: 'Bob Builder', supportLevel: 'L2',
         customerId: 'hn-bank', company: 'core-banking / proj-rocket',
         contactName: 'Linh Tran', contactDetails: 'linh.tran@hnbank.vn / +84-903-112-244 / Teams',
-        custSeverity: 'Critical — 100% of new Windows VM builds fail in HN',
+        blastRadius: 'specific-user',
         custRef: 'CHG-2026-0871',
         taskGoal: 'Build 12 new Windows Server 2022 VMs in HN for the quarterly core-banking capacity increase.',
         tempFixSummary: 'Builds redirected to HCMC and Windows images launched with --config-drive true. Restores delivery for the customer while HN metadata is broken. Does not fix HN.',
@@ -2934,11 +2934,11 @@
         error_signature_raw: 'ovn-northd Raft leader election; port binding timed out after 300 seconds'
       },
       fields: {
-        ticketNumber: 'HNB-HN-0002', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'HNB-HN-0002', state: 'In Progress', severity: '1', escalation: 'L3',
         ticketOwner: 'Grace Git', supportLevel: 'L3',
         customerId: 'hn-bank', company: 'core-banking / security-uplift',
         contactName: 'Minh Vu', contactDetails: 'minh.vu@hnbank.vn / +84-908-773-901 / Teams',
-        custSeverity: 'Critical — intermittent connectivity loss across HN tenant networks',
+        blastRadius: 'all-users',
         custRef: 'CHG-2026-0904',
         taskGoal: 'Roll out the new PCI-DSS security-group ruleset (about 4,000 rules) across all HN tenant networks.',
         tempFixSummary: 'Bulk push halted at rule 2,100. Remaining rules deferred. Connectivity recovered within 6 minutes of stopping the script.',
@@ -3070,11 +3070,11 @@
         error_signature_raw: 'security group rule added but traffic still blocked'
       },
       fields: {
-        ticketNumber: 'HCC-HCMC-0003', state: 'In Progress', priority: '3', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0003', state: 'In Progress', severity: '3', escalation: 'none',
         ticketOwner: 'Charlie Checker', supportLevel: 'L1',
         customerId: 'hcmc-commerce', company: 'storefront / web-tier',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
-        custSeverity: 'Medium — customer believes firewall changes are not being applied',
+        blastRadius: 'specific-user',
         custRef: 'REQ-2026-4471',
         taskGoal: 'Open TCP 8443 from the web tier to the new payment service and verify connectivity immediately.',
         tempFixSummary: 'None applied. No fault present — the platform is behaving within its documented envelope.',
@@ -3203,11 +3203,11 @@
         error_signature_raw: 'HEALTH_WARN pool nearfull POOL_NEAR_FULL ENOSPC creating volume'
       },
       fields: {
-        ticketNumber: 'DC1S-DC1-0004', state: 'In Progress', priority: '1', escalation: 'L2',
+        ticketNumber: 'DC1S-DC1-0004', state: 'In Progress', severity: '2', escalation: 'L2',
         ticketOwner: 'Heidi Hash', supportLevel: 'L2',
         customerId: 'dc1-shared', company: 'analytics-platform / spark-cluster',
         contactName: 'Hoa Pham', contactDetails: 'hoa.pham@dc1shared.vn / +84-905-224-118 / Slack #dc1-storage',
-        custSeverity: 'Critical — analytics cluster cannot provision new volumes',
+        blastRadius: 'all-users',
         custRef: 'CHG-2026-0912',
         taskGoal: 'Provision 40 × 500GB volumes for the new Spark analytics cluster in DC1.',
         tempFixSummary: 'New volume requests routed to ceph-pool-hdd-01 (54% used). Analytics cluster provisioned on HDD with reduced IOPS while SSD capacity is reclaimed.',
@@ -3338,11 +3338,11 @@
         error_signature_raw: '401 Unauthorized token revoked'
       },
       fields: {
-        ticketNumber: 'DC1S-DC1-0005', state: 'In Progress', priority: '2', escalation: 'L2',
+        ticketNumber: 'DC1S-DC1-0005', state: 'In Progress', severity: '2', escalation: 'L2',
         ticketOwner: 'Alice Verify', supportLevel: 'L2',
         customerId: 'dc1-shared', company: 'analytics-platform / ci-pipeline',
         contactName: 'Hoa Pham', contactDetails: 'hoa.pham@dc1shared.vn / +84-905-224-118 / Slack',
-        custSeverity: 'High — nightly provisioning pipeline fails mid-run',
+        blastRadius: 'internal-users',
         custRef: 'CHG-2026-0899',
         taskGoal: 'Run the nightly automated provisioning pipeline that builds and tears down 60 test instances.',
         tempFixSummary: 'Pipeline pinned to controller-dc1-01 through the load balancer. Jobs complete, but the deployment has no redundancy while pinned.',
@@ -3473,11 +3473,11 @@
         error_signature_raw: 'DHCPDISCOVER no address available lease allocation failed'
       },
       fields: {
-        ticketNumber: 'HCC-HCMC-0006', state: 'In Progress', priority: '2', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0006', state: 'In Progress', severity: '2', escalation: 'none',
         ticketOwner: 'Dave Debugger', supportLevel: 'L2',
         customerId: 'hcmc-commerce', company: 'storefront / app-tier',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
-        custSeverity: 'High — cannot scale the application tier reliably',
+        blastRadius: 'specific-user',
         custRef: 'CHG-2026-0907',
         taskGoal: 'Scale the application tier from 8 to 28 instances on subnet net-app-02 ahead of the sales campaign.',
         tempFixSummary: 'Subnet MTU reverted to 1500 and instances booted in batches of 3. Scaling completes, but jumbo frames are lost and boots are slow.',
@@ -3608,11 +3608,11 @@
         error_signature_raw: 'MessagingTimeout: Timed out waiting for a reply to message ID'
       },
       fields: {
-        ticketNumber: 'HNB-HN-0007', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'HNB-HN-0007', state: 'In Progress', severity: '1', escalation: 'L3',
         ticketOwner: 'Frank Fixer', supportLevel: 'L3',
         customerId: 'hn-bank', company: 'core-banking / capacity-expansion',
         contactName: 'Minh Vu', contactDetails: 'minh.vu@hnbank.vn / +84-908-773-901 / Teams',
-        custSeverity: 'Critical — scale, resize and migration operations all failing',
+        blastRadius: 'all-users',
         custRef: 'CHG-2026-0918',
         taskGoal: 'Add 8 new compute nodes to the HN cluster and rebalance workloads onto them.',
         tempFixSummary: 'All OpenStack services pointed at the single healthy RabbitMQ node (rabbit@node1). Operations succeed but the messaging layer has no redundancy.',
@@ -3743,11 +3743,11 @@
         error_signature_raw: 'ping statistics packet loss TCP retransmits elevated'
       },
       fields: {
-        ticketNumber: 'MSC-HN-0008', state: 'In Progress', priority: '1', escalation: 'L3',
+        ticketNumber: 'MSC-HN-0008', state: 'In Progress', severity: '1', escalation: 'L3',
         ticketOwner: 'Frank Fixer', supportLevel: 'SRE',
         customerId: 'multisite', company: 'dr-platform / cross-site-replication',
         contactName: 'Duc Hoang', contactDetails: 'duc.hoang@multisite.vn / +84-902-889-771 / Teams',
-        custSeverity: 'Critical — DR replication lagging, RPO at risk',
+        blastRadius: 'all-users',
         custRef: 'CHG-2026-0921',
         taskGoal: 'Complete the quarterly DR failover test between HN and HCMC within the agreed RPO of 5 minutes.',
         tempFixSummary: 'Degraded LAG member administratively removed. Link runs at reduced bandwidth (3 of 4 members) but with zero loss. Replication caught up within 20 minutes.',
@@ -3878,11 +3878,11 @@
         error_signature_raw: 'listener stuck in PENDING_UPDATE provisioning_status'
       },
       fields: {
-        ticketNumber: 'DC2S-DC2-0009', state: 'In Progress', priority: '2', escalation: 'none',
+        ticketNumber: 'DC2S-DC2-0009', state: 'In Progress', severity: '2', escalation: 'none',
         ticketOwner: 'Eve Eventloop', supportLevel: 'L2',
         customerId: 'dc2-shared', company: 'batch-platform / ingest-lb',
         contactName: 'Tuan Le', contactDetails: 'tuan.le@dc2shared.vn / +84-907-441-662 / Email',
-        custSeverity: 'High — cannot update load balancer configuration',
+        blastRadius: 'specific-user',
         custRef: 'REQ-2026-4520',
         taskGoal: 'Add a new HTTPS listener on port 8443 to the ingest load balancer ahead of the batch platform release.',
         tempFixSummary: 'None applied yet — root cause not yet identified. Customer is using the existing port 443 listener as an interim path.',
@@ -4014,11 +4014,11 @@
         error_signature_raw: 'Internal Server Error /auth/websso/'
       },
       fields: {
-        ticketNumber: 'HCC-HCMC-0010', state: 'In Progress', priority: '3', escalation: 'none',
+        ticketNumber: 'HCC-HCMC-0010', state: 'In Progress', severity: '2', escalation: 'none',
         ticketOwner: 'Judy Java', supportLevel: 'L2',
         customerId: 'hcmc-commerce', company: 'storefront / platform-access',
         contactName: 'Anh Nguyen', contactDetails: 'anh.nguyen@hcmc-commerce.vn / +84-901-556-330 / Email',
-        custSeverity: 'Medium — newly onboarded staff cannot access the dashboard',
+        blastRadius: 'internal-users',
         custRef: 'REQ-2026-4533',
         taskGoal: 'Onboard 14 new platform engineers so they can access Horizon via corporate SSO.',
         tempFixSummary: 'Affected users granted a temporary direct role assignment, bypassing federated mapping. They can log in, but outside the normal SSO governance model.',
@@ -4701,14 +4701,13 @@
             </div>
           </div>
           <div class="col-md-3">
-            <label class="form-label">Priority</label>
-            <select class="form-select" id="priority" name="priority" onchange="recolor();markDirty();">
-              <option value="1">1 — Critical</option>
-              <option value="2">2 — High</option>
-              <option value="3" selected>3 — Moderate</option>
-              <option value="4">4 — Low</option>
-              <option value="5">5 — Planning</option>
+            <label class="form-label">Severity</label>
+            <select class="form-select" id="severity" name="severity" onchange="recolor();markDirty();">
+              <option value="1">1 — Full system down</option>
+              <option value="2">2 — Features not working</option>
+              <option value="3" selected>3 — Performance issues</option>
             </select>
+            <div class="ai-note">What is broken, not how fast we answer.</div>
           </div>
           <div class="col-md-3">
             <label class="form-label">Escalation</label>
@@ -4759,7 +4758,7 @@
             <div class="ai-note" id="customerHealth">—</div>
 
             <label class="form-label mb-1 mt-2">
-              Ticket # <span class="badge bg-primary" id="priorityBadge">P3</span>
+              Ticket # <span class="badge bg-primary" id="priorityBadge">S3</span>
               <span class="ai-note">— auto: customer-location-number</span>
             </label>
             <input class="form-control" id="ticketNumber" name="ticketNumber" readonly>
@@ -4779,8 +4778,16 @@
         </div>
         <div class="row">
           <div class="col-md-4 mb-2">
-            <label class="form-label mb-1">Severity (customer view)</label>
-            <input class="form-control" id="custSeverity" name="custSeverity" placeholder="Critical — VM spawn fails 100%">
+            <label class="form-label mb-1">
+              Blast radius <span class="badge bg-primary-subtle text-primary-emphasis">facet</span>
+            </label>
+            <select class="form-select" id="blastRadius" name="blastRadius" onchange="markDirty()">
+              <option value="">-- Who is affected? --</option>
+              <option value="all-users">All users — every customer / whole platform</option>
+              <option value="internal-users">Internal users — staff, automation, service accounts</option>
+              <option value="specific-user">Specific user — one tenant, project or person</option>
+            </select>
+            <div class="ai-note">Bounds the problem: who IS affected, and by implication who is NOT.</div>
           </div>
           <div class="col-md-4 mb-2">
             <label class="form-label mb-1">Customer Reference / Change ID (optional)</label>
@@ -6149,14 +6156,14 @@
         body.className = 'kt-body for-' + role;
       }
     });
-    const p = String(val('priority') || '3');
+    const p = String(val('severity') || '3');
     const st = String(val('state')).toLowerCase();
     const solved = ['solved', 'resolved', 'closed'].includes(st);
     const badge = $('priorityBadge');
     if (badge) {
       badge.className = 'badge ' + (solved ? 'bg-success' : p === '1' ? 'bg-danger'
         : p === '2' ? 'bg-warning text-dark' : p === '3' ? 'bg-primary' : 'bg-secondary');
-      badge.textContent = solved ? 'SOLVED' : 'P' + p;
+      badge.textContent = solved ? 'SOLVED' : 'S' + p;
     }
   }
 
@@ -6620,9 +6627,10 @@
   const RECORD_ROWS = [
     ['Issue / deviation',        () => val('p1_1')],
     ['Expected state',           () => val('p1_2')],
-    ['Impact',                   () => [val('p1_3'), val('custSeverity')].filter(Boolean).join(' — ')],
-    ['Priority',                 () => 'P' + val('priority') + ' · ' + val('state')],
-    ['Scope / blast radius',     () => {
+    ['Impact',                   () => [val('p1_3'), blastLabel()].filter(Boolean).join(' — ')],
+    ['Severity',                 () => 'S' + val('severity') + ' · ' + val('state')],
+    ['Blast radius',             () => blastLabel()],
+    ['Scope / detail',           () => {
       const p = [];
       if (val('cntNodes')) p.push(val('cntNodes') + ' nodes');
       if (val('cntVms')) p.push(val('cntVms') + ' VMs');
@@ -7169,7 +7177,7 @@
       category: val('category') || 'configuration',
       environment: val('env') || 'production',
       site: val('site') || 'unknown',
-      priority: val('priority'),
+      priority: val('severity'),
 
       title: title,
       issue_description: scrub([val('p1_1'), val('taskGoal'), val('trendNarrative')].filter(Boolean).join('\n\n')),
@@ -7446,7 +7454,7 @@
 
   function autofillHandover() {
     if (!val('escOneLiner')) {
-      $('escOneLiner').value = [val('custSeverity'), val('p1_1')].filter(Boolean).join(' — ').slice(0, 160);
+      $('escOneLiner').value = [val('p1_1')].filter(Boolean).join(' — ').slice(0, 160);
     }
     if (!val('escSteps')) {
       const tried = val('tried');
@@ -7864,7 +7872,7 @@
       kpi('Total cases', c.total, label) +
       kpi('Pending', c.pending, 'not yet resolved', c.pending > c.solved ? 'bad' : 'warn') +
       kpi('Solved', c.solved, c.solve_rate + '% solve rate', 'good') +
-      kpi('P1 open', c.p1_open, 'critical, unresolved', c.p1_open ? 'bad' : 'good') +
+      kpi('S1 open', c.p1_open, 'system down, unresolved', c.p1_open ? 'bad' : 'good') +
       kpi('MTTR', (c.mttr != null ? c.mttr + 'm' : '—'), 'target < 240m', (c.mttr && c.mttr > 240) ? 'warn' : 'good') +
       kpi('Open problems', c.open_problems, c.recurrences + ' recurrences', c.open_problems ? 'warn' : 'good');
 
@@ -7942,7 +7950,7 @@
     ticketNumberAuto = true;
     refreshTicketNumber();
     $('state').value = 'New';
-    $('priority').value = '3';
+    $('severity').value = '3';
     $('escalation').value = 'none';
     $('supportLevel').value = 'L1';
     $('env').value = 'production';
@@ -8095,6 +8103,11 @@
     }).join('') : '<tr><td colspan="8" class="text-muted text-center ai-note">No related cases found.</td></tr>';
   }
 
+  const BLAST_LABEL = {
+    'all-users': 'All users', 'internal-users': 'Internal users', 'specific-user': 'Specific user'
+  };
+  function blastLabel() { return BLAST_LABEL[val('blastRadius')] || ''; }
+
   function rcLabel(key) {
     if (!key) return '—';
     const r = (KB_VOCAB.root_cause_category || []).find(x => x.key === key);
@@ -8121,8 +8134,8 @@
       category: val('category'),
       environment: val('env'),
       site: val('site'),
-      priority: val('priority'),
-      severity: val('custSeverity'),
+      priority: val('severity'),
+      blast_radius: val('blastRadius'),
       deviation: val('p1_1'),
       error_signature_raw: currentErrorSignature(),
       query: [val('p1_1'), val('p1_err_short'), val('errMsg')].filter(Boolean).join(' '),
@@ -8357,7 +8370,7 @@
           '<div class="ai-note">' + esc_(x.title.slice(0, 46)) + '</div></td>' +
         '<td class="ai-note">' + esc_(x.opened_at.slice(0, 10)) + '</td>' +
         '<td class="ai-note">' + esc_(x.service_component) + '</td>' +
-        '<td><span class="badge bg-' + (x.priority === '1' ? 'danger' : x.priority === '2' ? 'warning text-dark' : 'secondary') + '">P' + esc_(x.priority) + '</span></td>' +
+        '<td><span class="badge bg-' + (x.priority === '1' ? 'danger' : x.priority === '2' ? 'warning text-dark' : 'secondary') + '">S' + esc_(x.priority) + '</span></td>' +
         '<td class="ai-note">' + (x.time_to_resolve_mins != null ? x.time_to_resolve_mins + 'm' : '—') + '</td>' +
         '<td class="ai-note">' + esc_(rcLabel(x.root_cause_category)) + '</td>' +
         '<td>' + (x.problem_id ? '<a href="#" onclick="showProblemDetail(\'' + idq(x.problem_id) + '\');return false;">' + esc_(x.problem_id) + '</a>' : '<span class="ai-note">—</span>') + '</td>' +
@@ -8385,7 +8398,7 @@
     const box = $('c360Timeline');
     if (!c) { box.innerHTML = '<span class="ai-note">Case not found.</span>'; return; }
     box.innerHTML = '<div class="fw-semibold mb-2">' + esc_(c.ticket_id) + ' — ' + esc_(c.title) + '</div>' +
-      '<div class="ai-note mb-2">' + esc_(c.service_component) + ' · ' + esc_(c.site) + ' · P' + esc_(c.priority) +
+      '<div class="ai-note mb-2">' + esc_(c.service_component) + ' · ' + esc_(c.site) + ' · S' + esc_(c.priority) +
         ' · root cause: ' + esc_(rcLabel(c.root_cause_category)) +
         (c.kb_id ? ' · <a href="#" onclick="viewKbArticle(\'' + idq(c.kb_id) + '\');return false;">' + esc_(c.kb_id) + '</a>' : '') +
         (c.problem_id ? ' · <a href="#" onclick="showProblemDetail(\'' + idq(c.problem_id) + '\');return false;">' + esc_(c.problem_id) + '</a>' : '') +
@@ -8527,7 +8540,7 @@
       category: val('category'),
       environment: val('env'),
       site: val('site'),
-      priority: val('priority'),
+      priority: val('severity'),
       root_cause_category: val('rootCauseCategory') || null,
       problem_id: val('problemId') || null,
       kb_id: (provenance[0] && provenance[0].kb_id) || null,
@@ -8539,7 +8552,7 @@
       closed_at: new Date().toISOString(),
       relations: [],
       events: [
-        { at: val('firstNotice'), type: 'created', detail: 'Case opened (P' + val('priority') + ')' },
+        { at: val('firstNotice'), type: 'created', detail: 'Case opened (S' + val('severity') + ')' },
         { at: nowStamp(), type: 'closed', detail: 'Closed with root cause: ' + rcLabel(val('rootCauseCategory')) }
       ]
     });

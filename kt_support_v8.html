@@ -572,14 +572,13 @@
             </div>
           </div>
           <div class="col-md-3">
-            <label class="form-label">Priority</label>
-            <select class="form-select" id="priority" name="priority" onchange="recolor();markDirty();">
-              <option value="1">1 — Critical</option>
-              <option value="2">2 — High</option>
-              <option value="3" selected>3 — Moderate</option>
-              <option value="4">4 — Low</option>
-              <option value="5">5 — Planning</option>
+            <label class="form-label">Severity</label>
+            <select class="form-select" id="severity" name="severity" onchange="recolor();markDirty();">
+              <option value="1">1 — Full system down</option>
+              <option value="2">2 — Features not working</option>
+              <option value="3" selected>3 — Performance issues</option>
             </select>
+            <div class="ai-note">What is broken, not how fast we answer.</div>
           </div>
           <div class="col-md-3">
             <label class="form-label">Escalation</label>
@@ -630,7 +629,7 @@
             <div class="ai-note" id="customerHealth">—</div>
 
             <label class="form-label mb-1 mt-2">
-              Ticket # <span class="badge bg-primary" id="priorityBadge">P3</span>
+              Ticket # <span class="badge bg-primary" id="priorityBadge">S3</span>
               <span class="ai-note">— auto: customer-location-number</span>
             </label>
             <input class="form-control" id="ticketNumber" name="ticketNumber" readonly>
@@ -650,8 +649,16 @@
         </div>
         <div class="row">
           <div class="col-md-4 mb-2">
-            <label class="form-label mb-1">Severity (customer view)</label>
-            <input class="form-control" id="custSeverity" name="custSeverity" placeholder="Critical — VM spawn fails 100%">
+            <label class="form-label mb-1">
+              Blast radius <span class="badge bg-primary-subtle text-primary-emphasis">facet</span>
+            </label>
+            <select class="form-select" id="blastRadius" name="blastRadius" onchange="markDirty()">
+              <option value="">-- Who is affected? --</option>
+              <option value="all-users">All users — every customer / whole platform</option>
+              <option value="internal-users">Internal users — staff, automation, service accounts</option>
+              <option value="specific-user">Specific user — one tenant, project or person</option>
+            </select>
+            <div class="ai-note">Bounds the problem: who IS affected, and by implication who is NOT.</div>
           </div>
           <div class="col-md-4 mb-2">
             <label class="form-label mb-1">Customer Reference / Change ID (optional)</label>
@@ -2020,14 +2027,14 @@
         body.className = 'kt-body for-' + role;
       }
     });
-    const p = String(val('priority') || '3');
+    const p = String(val('severity') || '3');
     const st = String(val('state')).toLowerCase();
     const solved = ['solved', 'resolved', 'closed'].includes(st);
     const badge = $('priorityBadge');
     if (badge) {
       badge.className = 'badge ' + (solved ? 'bg-success' : p === '1' ? 'bg-danger'
         : p === '2' ? 'bg-warning text-dark' : p === '3' ? 'bg-primary' : 'bg-secondary');
-      badge.textContent = solved ? 'SOLVED' : 'P' + p;
+      badge.textContent = solved ? 'SOLVED' : 'S' + p;
     }
   }
 
@@ -2491,9 +2498,10 @@
   const RECORD_ROWS = [
     ['Issue / deviation',        () => val('p1_1')],
     ['Expected state',           () => val('p1_2')],
-    ['Impact',                   () => [val('p1_3'), val('custSeverity')].filter(Boolean).join(' — ')],
-    ['Priority',                 () => 'P' + val('priority') + ' · ' + val('state')],
-    ['Scope / blast radius',     () => {
+    ['Impact',                   () => [val('p1_3'), blastLabel()].filter(Boolean).join(' — ')],
+    ['Severity',                 () => 'S' + val('severity') + ' · ' + val('state')],
+    ['Blast radius',             () => blastLabel()],
+    ['Scope / detail',           () => {
       const p = [];
       if (val('cntNodes')) p.push(val('cntNodes') + ' nodes');
       if (val('cntVms')) p.push(val('cntVms') + ' VMs');
@@ -3040,7 +3048,7 @@
       category: val('category') || 'configuration',
       environment: val('env') || 'production',
       site: val('site') || 'unknown',
-      priority: val('priority'),
+      priority: val('severity'),
 
       title: title,
       issue_description: scrub([val('p1_1'), val('taskGoal'), val('trendNarrative')].filter(Boolean).join('\n\n')),
@@ -3317,7 +3325,7 @@
 
   function autofillHandover() {
     if (!val('escOneLiner')) {
-      $('escOneLiner').value = [val('custSeverity'), val('p1_1')].filter(Boolean).join(' — ').slice(0, 160);
+      $('escOneLiner').value = [val('p1_1')].filter(Boolean).join(' — ').slice(0, 160);
     }
     if (!val('escSteps')) {
       const tried = val('tried');
@@ -3735,7 +3743,7 @@
       kpi('Total cases', c.total, label) +
       kpi('Pending', c.pending, 'not yet resolved', c.pending > c.solved ? 'bad' : 'warn') +
       kpi('Solved', c.solved, c.solve_rate + '% solve rate', 'good') +
-      kpi('P1 open', c.p1_open, 'critical, unresolved', c.p1_open ? 'bad' : 'good') +
+      kpi('S1 open', c.p1_open, 'system down, unresolved', c.p1_open ? 'bad' : 'good') +
       kpi('MTTR', (c.mttr != null ? c.mttr + 'm' : '—'), 'target < 240m', (c.mttr && c.mttr > 240) ? 'warn' : 'good') +
       kpi('Open problems', c.open_problems, c.recurrences + ' recurrences', c.open_problems ? 'warn' : 'good');
 
@@ -3813,7 +3821,7 @@
     ticketNumberAuto = true;
     refreshTicketNumber();
     $('state').value = 'New';
-    $('priority').value = '3';
+    $('severity').value = '3';
     $('escalation').value = 'none';
     $('supportLevel').value = 'L1';
     $('env').value = 'production';
@@ -3966,6 +3974,11 @@
     }).join('') : '<tr><td colspan="8" class="text-muted text-center ai-note">No related cases found.</td></tr>';
   }
 
+  const BLAST_LABEL = {
+    'all-users': 'All users', 'internal-users': 'Internal users', 'specific-user': 'Specific user'
+  };
+  function blastLabel() { return BLAST_LABEL[val('blastRadius')] || ''; }
+
   function rcLabel(key) {
     if (!key) return '—';
     const r = (KB_VOCAB.root_cause_category || []).find(x => x.key === key);
@@ -3992,8 +4005,8 @@
       category: val('category'),
       environment: val('env'),
       site: val('site'),
-      priority: val('priority'),
-      severity: val('custSeverity'),
+      priority: val('severity'),
+      blast_radius: val('blastRadius'),
       deviation: val('p1_1'),
       error_signature_raw: currentErrorSignature(),
       query: [val('p1_1'), val('p1_err_short'), val('errMsg')].filter(Boolean).join(' '),
@@ -4228,7 +4241,7 @@
           '<div class="ai-note">' + esc_(x.title.slice(0, 46)) + '</div></td>' +
         '<td class="ai-note">' + esc_(x.opened_at.slice(0, 10)) + '</td>' +
         '<td class="ai-note">' + esc_(x.service_component) + '</td>' +
-        '<td><span class="badge bg-' + (x.priority === '1' ? 'danger' : x.priority === '2' ? 'warning text-dark' : 'secondary') + '">P' + esc_(x.priority) + '</span></td>' +
+        '<td><span class="badge bg-' + (x.priority === '1' ? 'danger' : x.priority === '2' ? 'warning text-dark' : 'secondary') + '">S' + esc_(x.priority) + '</span></td>' +
         '<td class="ai-note">' + (x.time_to_resolve_mins != null ? x.time_to_resolve_mins + 'm' : '—') + '</td>' +
         '<td class="ai-note">' + esc_(rcLabel(x.root_cause_category)) + '</td>' +
         '<td>' + (x.problem_id ? '<a href="#" onclick="showProblemDetail(\'' + idq(x.problem_id) + '\');return false;">' + esc_(x.problem_id) + '</a>' : '<span class="ai-note">—</span>') + '</td>' +
@@ -4256,7 +4269,7 @@
     const box = $('c360Timeline');
     if (!c) { box.innerHTML = '<span class="ai-note">Case not found.</span>'; return; }
     box.innerHTML = '<div class="fw-semibold mb-2">' + esc_(c.ticket_id) + ' — ' + esc_(c.title) + '</div>' +
-      '<div class="ai-note mb-2">' + esc_(c.service_component) + ' · ' + esc_(c.site) + ' · P' + esc_(c.priority) +
+      '<div class="ai-note mb-2">' + esc_(c.service_component) + ' · ' + esc_(c.site) + ' · S' + esc_(c.priority) +
         ' · root cause: ' + esc_(rcLabel(c.root_cause_category)) +
         (c.kb_id ? ' · <a href="#" onclick="viewKbArticle(\'' + idq(c.kb_id) + '\');return false;">' + esc_(c.kb_id) + '</a>' : '') +
         (c.problem_id ? ' · <a href="#" onclick="showProblemDetail(\'' + idq(c.problem_id) + '\');return false;">' + esc_(c.problem_id) + '</a>' : '') +
@@ -4398,7 +4411,7 @@
       category: val('category'),
       environment: val('env'),
       site: val('site'),
-      priority: val('priority'),
+      priority: val('severity'),
       root_cause_category: val('rootCauseCategory') || null,
       problem_id: val('problemId') || null,
       kb_id: (provenance[0] && provenance[0].kb_id) || null,
@@ -4410,7 +4423,7 @@
       closed_at: new Date().toISOString(),
       relations: [],
       events: [
-        { at: val('firstNotice'), type: 'created', detail: 'Case opened (P' + val('priority') + ')' },
+        { at: val('firstNotice'), type: 'created', detail: 'Case opened (S' + val('severity') + ')' },
         { at: nowStamp(), type: 'closed', detail: 'Closed with root cause: ' + rcLabel(val('rootCauseCategory')) }
       ]
     });

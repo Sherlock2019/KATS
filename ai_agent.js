@@ -416,7 +416,7 @@
       1: 'Record severity, blast radius and who is affected. ' +
          (ctx.site ? 'Impact is visible at ' + ctx.site + '. ' : '') +
          'Snapshot logs, configs, versions and counters BEFORE any change — mitigation destroys evidence.',
-      2: 'Priority is currently P' + (ctx.priority || '?') + '. Decide what must be protected or restored first: ' +
+      2: 'Severity is S' + (ctx.priority || '?') + (ctx.blast_radius ? ', blast radius ' + ctx.blast_radius : '') + '. Decide what must be protected or restored first: ' +
          'customer service, data integrity, or the remaining healthy capacity.',
       3: known
         ? 'A proven mitigation exists in ' + src + ': ' +
