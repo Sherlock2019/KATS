@@ -2136,18 +2136,62 @@
    * are already done and are marked as such, so the engineer goes straight
    * to verification. That is the minimum-action objective made concrete.
    * ================================================================== */
+  /* ---------------------------------------------------------------------
+   * UNIVERSAL TROUBLESHOOTING ACTION PLAN — 10 steps
+   *
+   *   Protect → Prioritize → Mitigate → Define → Isolate →
+   *   Hypothesize → Eliminate → Verify → Correct → Prevent
+   *
+   * Domain-neutral: works for IT, cloud, AI, infrastructure, manufacturing,
+   * operations and business processes. Two funnels run in parallel —
+   * operational (max impact → min impact) and diagnostic (max uncertainty →
+   * min uncertainty).
+   *
+   * Exposed globally so the UI and the agent share one definition.
+   * ------------------------------------------------------------------- */
   const KT_STEPS = [
-    { n: 1, title: 'Stabilize and protect the evidence', where: '§10.1', mins: 20 },
-    { n: 2, title: 'State the deviation', where: '§1.1.1 / §1.1.2', mins: 10 },
-    { n: 3, title: 'Specify it — IS and IS NOT', where: '§1.2 / §1.3 / §1.4 / §1.2.7', mins: 25 },
-    { n: 4, title: 'Identify the distinctions', where: '§1.1.4 / §10.0.3', mins: 20 },
-    { n: 5, title: 'Identify the changes', where: '§6 Changes & History', mins: 15 },
-    { n: 6, title: 'Generate possible causes', where: '§10.3', mins: 20 },
-    { n: 7, title: 'Test each cause against the full specification', where: '§10.3', mins: 25 },
-    { n: 8, title: 'Rank and pick the most probable cause', where: '§10.3', mins: 10 },
-    { n: 9, title: 'Verify the true cause', where: '§10.3 / §10.6', mins: 30 },
-    { n: 10, title: 'Fix, confirm and prevent', where: '§10.7', mins: 45 }
+    { n: 1, phase: 'PROTECT', title: 'Assess impact and protect evidence',
+      question: 'What is the impact, and what evidence must we preserve?',
+      why: 'Before changing anything, understand severity, scope, urgency and business impact. Preserve logs, measurements, state and samples — a fix applied too early destroys what you need to investigate.',
+      where: '§1.1.3 / §1.2.7 / §5', mins: 20 },
+    { n: 2, phase: 'PRIORITIZE', title: 'Prioritize and stabilize',
+      question: 'What must we protect or restore first?',
+      why: 'Deal with the greatest current or potential impact first. Contain the problem and protect people, customers, systems, data, revenue or operations.',
+      where: '§0 Priority / §10.1', mins: 15 },
+    { n: 3, phase: 'MITIGATE', title: 'Find a safe workaround or mitigation',
+      question: 'How can we reduce the damage now without hiding the cause?',
+      why: 'Root-cause analysis takes time. Reduce impact without destroying the evidence needed to investigate. Mitigation is NOT root cause.',
+      where: '§10.6 Temporary Fix', mins: 25 },
+    { n: 4, phase: 'DEFINE', title: 'State and bound the deviation',
+      question: 'What exactly is wrong, and what should be happening instead?',
+      why: 'A vague problem creates vague causes. One sentence: the object and the defect, with no theory in it.',
+      where: '§1.1.1 / §1.1.2', mins: 10 },
+    { n: 5, phase: 'SPECIFY', title: 'Specify the problem — IS / IS NOT',
+      question: 'Where does the problem occur, and where could it occur but does not?',
+      why: 'Establish boundaries on WHAT, WHERE, WHEN and EXTENT. The unaffected comparison population is often more informative than the failure itself.',
+      where: '§1.2 / §1.3 / §1.4 / §1.2.7', mins: 25 },
+    { n: 6, phase: 'ISOLATE', title: 'Isolate through distinctions and changes',
+      question: 'What is different, and what changed around that difference?',
+      why: 'Progressively narrow the search space. Compare affected against unaffected, identify what is different, then what changed around that difference.',
+      where: '§1.1.4 / §6 / §10.0.3', mins: 25 },
+    { n: 7, phase: 'HYPOTHESIZE', title: 'Generate possible causes',
+      question: 'What mechanisms could produce exactly this pattern?',
+      why: 'Generate hypotheses from evidence, distinctions, dependencies and changes — not from experience or intuition alone.',
+      where: '§10.3', mins: 20 },
+    { n: 8, phase: 'ELIMINATE', title: 'Test, eliminate and rank causes',
+      question: 'Which causes explain all the evidence with the fewest assumptions?',
+      why: 'Challenge every hypothesis against the complete specification. Eliminate any cause that contradicts an important IS or IS NOT fact, then rank what survives.',
+      where: '§10.3', mins: 25 },
+    { n: 9, phase: 'VERIFY', title: 'Verify the true cause',
+      question: 'Can changing this factor predictably make the problem appear or disappear?',
+      why: 'Do not confuse correlation with causation. Confirm through observation, reproduction, controlled change, substitution or rollback.',
+      where: '§10.3 / §10.6', mins: 30 },
+    { n: 10, phase: 'CORRECT & PREVENT', title: 'Correct, confirm and prevent recurrence',
+      question: 'Did we really fix it, why was it possible, and how do we stop it happening again?',
+      why: 'Implement the permanent corrective action, verify normal operation is restored, identify systemic contributing causes, and capture the learning.',
+      where: '§10.7', mins: 45 }
   ];
+  global.UNIVERSAL_PLAN = KT_STEPS;
 
   function doActionPlan(ctx) {
     const t = doTriage(ctx);
@@ -2170,56 +2214,57 @@
     const wad = t.verdict === 'works_as_designed';
 
     const detail = {
-      1: known
-        ? 'Apply the documented containment from ' + src + ': ' +
+      1: 'Record severity, blast radius and who is affected. ' +
+         (ctx.site ? 'Impact is visible at ' + ctx.site + '. ' : '') +
+         'Snapshot logs, configs, versions and counters BEFORE any change — mitigation destroys evidence.',
+      2: 'Priority is currently P' + (ctx.priority || '?') + '. Decide what must be protected or restored first: ' +
+         'customer service, data integrity, or the remaining healthy capacity.',
+      3: known
+        ? 'A proven mitigation exists in ' + src + ': ' +
           ((problem && problem.workaround) || (kb && kb.workaround) || 'see the article') +
-          '. Capture state first so the evidence survives.'
-        : 'Contain the impact on ' + comp + ' and snapshot configs, versions, counters and logs before changing anything. Freeze unrelated changes.',
-      2: ctx.deviation
-        ? 'Already stated: "' + String(ctx.deviation).slice(0, 120) + '". Confirm it names an object and a defect, and contains no theory.'
-        : 'Write one sentence: what should happen, and what happens instead. No causes yet.',
-      3: 'Bound it on WHAT / WHERE / WHEN / EXTENT. Record the healthy comparables as the IS NOT set — ' +
-         (ctx.site ? 'you have ' + ctx.site + ' affected; name a site or node that is NOT.' : 'name what is comparable but working.'),
-      4: known
-        ? 'ALREADY KNOWN from ' + src + ': ' +
+          '. Apply it, and record it as MITIGATION — not as the fix.'
+        : 'Find the smallest safe action that reduces impact without hiding the cause. Avoid a blanket restart if it erases the failing state.',
+      4: ctx.deviation
+        ? 'Stated: "' + String(ctx.deviation).slice(0, 110) + '". Confirm it names an object and a defect, and contains no theory.'
+        : 'One sentence: what should be happening, and what is happening instead.',
+      5: 'Bound it on WHAT / WHERE / WHEN / EXTENT. ' +
+         (ctx.site ? 'You have ' + ctx.site + ' affected — now name a comparable site, node or tenant that is NOT.'
+                   : 'Name the comparable cases that are healthy.') +
+         ' The IS NOT population is the more informative half.',
+      6: known
+        ? 'ALREADY ISOLATED by ' + src + ': ' +
           ((kb && kb.distinctions && kb.distinctions[0])
             ? kb.distinctions[0].dimension + ' — IS ' + kb.distinctions[0].is + ' / IS NOT ' + kb.distinctions[0].is_not
             : 'see the documented distinction') +
-          '. Confirm it holds here rather than re-deriving it.'
-        : 'List every way the IS differs from the IS NOT — site, node, image, version, config, tenant, timing.',
-      5: known
-        ? 'The documented trigger is on record. Confirm the same change class applies to this occurrence.'
-        : 'For each distinction, what changed and when relative to the deviation? Include changes believed harmless.',
-      6: known
-        ? 'ALREADY KNOWN: ' + ((problem && problem.root_cause_statement) || (kb && kb.root_cause) || '').slice(0, 160) +
-          '. Do not regenerate causes — go to verification.'
-        : 'Derive candidates from the distinctions and changes above. Use §10.3 to rank three.',
+          '. Confirm the same distinction holds here rather than re-deriving it.'
+        : 'Divide the search space: all customers? all sites? all nodes? all versions? Keep splitting until few mechanisms remain, then ask what changed around that difference.',
       7: known
-        ? 'Already validated against the specification when ' + src + ' was raised.'
-        : 'For each candidate ask: does it explain the IS AND the IS NOT? Note every assumption it needs to survive.',
+        ? 'ALREADY KNOWN: ' + ((problem && problem.root_cause_statement) || (kb && kb.root_cause) || '').slice(0, 150) +
+          '. Do not regenerate hypotheses.'
+        : 'What mechanisms could produce exactly this pattern? Derive them from the distinctions and changes, not from memory.',
       8: known
-        ? 'Single candidate carried over from ' + src + '.'
-        : 'Pick the cause explaining most with fewest assumptions, and cheapest to test.',
+        ? 'Already tested against the specification when ' + src + ' was raised.'
+        : 'For each candidate ask: does it explain the IS AND the IS NOT, the WHEN and the EXTENT? Eliminate any that contradict a known fact; rank the survivors by assumptions needed.',
       9: known
-        ? 'Apply the documented fix on ONE target and confirm the symptom toggles off: ' +
+        ? 'Apply the documented fix to ONE target and confirm the symptom toggles off: ' +
           ((kb && kb.verification && kb.verification.test) || 're-run the reproduction')
-        : 'Change ONE variable, reversibly, on ONE target. Confirm the symptom toggles off — and back on if reverted.',
+        : 'Make the problem appear or disappear on demand. Change ONE factor, reversibly, on ONE target.',
       10: known
-        ? 'Apply the permanent fix from ' + src + ', re-run the reproduction, then link this case to the Problem so recurrence is counted.'
-        : 'Apply the minimal safe correction, re-run the reproduction, verify health, add monitoring, publish the KB article.'
+        ? 'Apply the permanent fix from ' + src + ', re-run the reproduction, then link this case to the Problem so recurrence is counted and the systemic cause stays visible.'
+        : 'Apply the minimal safe correction, confirm normal operation, identify why this was possible at all, add monitoring or a guardrail, and publish the KB article.'
     };
 
     r.plan_steps = KT_STEPS.map(s => {
       let status = 'not-started', shortcut = '', mins = s.mins;
-      if (wad && s.n >= 4 && s.n <= 9) { status = 'n/a'; shortcut = 'not a fault'; mins = 0; }
-      else if (known && s.n >= 4 && s.n <= 8) { status = 'done'; shortcut = 'known from ' + src; mins = 0; }
-      else if (ctx.deviation && s.n === 2) { status = 'done'; mins = 0; }
+      if (wad && s.n >= 5 && s.n <= 9) { status = 'n/a'; shortcut = 'not a fault'; mins = 0; }
+      else if (known && s.n >= 6 && s.n <= 8) { status = 'done'; shortcut = 'known from ' + src; mins = 0; }
+      else if (ctx.deviation && s.n === 4) { status = 'done'; mins = 0; }
       return {
         n: s.n, title: s.title, where: s.where, status, shortcut,
         todo: wad && s.n === 10
           ? 'No fix required. Send the customer the documented behaviour and the correct validation method, set root cause = works-as-designed, and close.'
           : detail[s.n],
-        why: KT_WHY[s.n], est_mins: mins, owner: '', notes: ''
+        why: s.why, phase: s.phase, question: s.question, est_mins: mins, owner: '', notes: ''
       };
     });
 
@@ -2237,25 +2282,14 @@
         ? 'Known cause from ' + src + ' — ' + skipped + ' of 10 KT steps are already answered. Go straight to verification.'
         : 'No prior knowledge — run the full 10-step KT sequence. ' + remaining.length + ' steps to work.';
     r.reasoning = t.reasoning.concat([
-      'Steps 4-8 (distinctions → changes → generate → test → rank) are the expensive middle of KT.',
+      'Steps 6-8 (isolate → hypothesize → eliminate) are the expensive middle of any investigation.',
       known ? 'They are skipped here because ' + src + ' already carries a validated cause — that is where the time saving comes from.'
             : 'They cannot be skipped here: nothing in the KB or the customer history matches this signature.'
     ]);
     return finish(r);
   }
 
-  const KT_WHY = {
-    1: 'A fix applied too early destroys the distinctions you need.',
-    2: 'If you cannot state the deviation in one sentence you cannot test it.',
-    3: 'The IS NOT half is what makes a cause testable.',
-    4: 'The cause lives inside a distinction.',
-    5: 'Anchoring changes to distinctions separates cause from coincidence.',
-    6: 'Causes derived from the specification are testable; causes from memory are guesses.',
-    7: 'A cause needing three assumptions to survive is not your cause.',
-    8: 'Fewest actions to a confident answer, not the most thorough investigation.',
-    9: 'Correlation is not confirmation. If it does not toggle, you have not found it.',
-    10: 'A fix that is not written down is a fix you will pay for again.'
-  };
+
 
   /* =====================================================================
    * TASK: probable_causes
@@ -2864,6 +2898,18 @@
             text: 'Tested cause #2 first because it was reversible and cheap. Symptom toggled off within 20s, so we did not need to run #1 or #3.' }
         ]
       },
+      plan: [
+        ['done', "P1. 12 Windows builds blocked across compute-hn-04 and hn-09. Console output, nova-api-metadata and ovn-metadata-agent logs captured BEFORE any restart."],
+        ['done', "Escalated L2, duty manager notified. Protected remaining capacity by pinning new builds away from the two affected nodes."],
+        ['done', "MITIGATION (not a fix): builds redirected to HCMC and launched with --config-drive true. 12/12 VMs delivered on the workaround."],
+        ['done', "Windows VM creation fails in HN; cloudbase-init hangs and metadata logs \"No port found\" for 169.254.169.254."],
+        ['done', "IS: Windows builds on hn-04/hn-09. IS NOT: Linux on the same nodes, Windows on hn-01/02/03, all of HCMC. WHEN: from 09:12, 17 min after the 08:55 patch run."],
+        ['done', "Distinction: ovnmeta namespace absent on hn-04/09, present on hn-01. Change: ovn-metadata-agent restarted at 08:55."],
+        ['done', "Not regenerated — signature matched PRB-0001, which already carries a validated mechanism."],
+        ['done', "Image eliminated (v3 and v4 both fail on hn-04, both succeed on hn-01). Network-wide eliminated (port bound on hn-01/02/03)."],
+        ['done', "Restarted the agent on hn-04 ONLY. Namespace restored in 20s; vm-cb-win-08 built with config-drive disabled. Symptom toggled off."],
+        ['in-progress', "Reconciliation hook rolling out to all HN compute nodes. force_config_drive=True for Windows images pending CHG. Alert on missing ovnmeta namespace deployed."]
+      ],
       causalChain: [
         { why: 'Windows guests boot unconfigured — no hostname, no injected key', evidence: 'Guest console: cloudbase-init retry 12/30' },
         { why: 'The metadata service is unreachable at 169.254.169.254', evidence: 'nova-api-metadata: "No port found in network None"' },
@@ -2988,6 +3034,18 @@
           e: 'If Raft is the cause, a longer timer alone removes the impact',
           a: 'Elections reduced but loss persisted — timer alone is insufficient', o: 'inconclusive', own: 'Ivan Integer — contributing, not causal' }
       ],
+      plan: [
+        ['done', "P1. 340 instances across 9 tenants seeing 30-90s gaps. northd CPU, Raft term changes and Grafana window exported before touching config."],
+        ['done', "Escalated L3. Protected the data plane by halting the PCI push at rule 2,100 of 4,000."],
+        ['done', "MITIGATION: rule push throttled to batches of 50 with a 2s pause. Impact stopped within 6 minutes."],
+        ['done', "Tenant networks lose connectivity for 30-90s and port binding times out at 300s during bulk security-group writes."],
+        ['done', "IS: HN during push bursts. IS NOT: HCMC running the identical script, and HN between bursts. EXTENT scales with push rate."],
+        ['done', "Distinction: HN carries 12,000 ACLs against HCMC 2,000. Change: PCI-DSS rollout script started 14:15."],
+        ['done', "Known from PRB-0002 — full logical-flow recompute per rule write."],
+        ['done', "Fabric congestion eliminated (counters clean, loss stops when script pauses). Raft-as-cause eliminated (timer alone insufficient)."],
+        ['done', "Enabled use_logical_dp_groups on HN only, re-ran one 50-rule batch: northd peaked 41%, zero elections, zero loss."],
+        ['in-progress', "dp-groups + Raft timer applied. Remaining 1,900 rules queued. northd CPU alert at 70%/5min deployed; runbook RB-208 updated."]
+      ],
       causalChain: [
         { why: 'Tenants lose connectivity for 30-90 seconds', evidence: 'Inter-instance ping loss during push bursts' },
         { why: 'Logical flows reach hypervisors late', evidence: 'Port binding timeout after 300 seconds' },
@@ -3108,6 +3166,18 @@
           t: 'Run the identical test at T+4s and at T+60s, changing nothing but the wait',
           e: 'Early test fails, later test succeeds, with no change to the platform',
           a: 'T+4s blocked, T+60s succeeded. No defect. Confirmed works-as-designed.', o: 'supports', own: 'Charlie Checker — closed WAD' }
+      ],
+      plan: [
+        ['done', "P3. No service impact. Customer pipeline held. Captured the exact command sequence and timestamps."],
+        ['done', "Nothing to restore — existing traffic unaffected. Confirmed no rules were lost."],
+        ['n/a', "No mitigation needed; there is no fault to mitigate."],
+        ['done', "Customer reports a new security-group rule \"does not work\" when tested immediately after the API returns 201."],
+        ['done', "IS: validation within ~10s of the API call. IS NOT: the same rule validated after 60s, which always succeeds."],
+        ['done', "The only distinction is elapsed time between API 200 and the connectivity test. Nothing changed on the platform."],
+        ['n/a', "No causal mechanism to generate — the behaviour is inside the documented envelope."],
+        ['n/a', "Wrong-rule and flow-install-failure both eliminated at step 6."],
+        ['done', "Ran the identical test at T+4s (blocked) and T+60s (succeeds). ovn-controller installed the flow at T+38s."],
+        ['done', "Closed works-as-designed. Customer sent the behaviour reference and a polling snippet. 4th occurrence — documentation request raised on PRB-0005."]
       ],
       causalChain: [
         { why: 'Customer reports the firewall rule does not work', evidence: 'curl timed out at T+4s' },
@@ -3232,6 +3302,18 @@
           e: 'Snapshot growth begins on the change date and accounts for the capacity delta',
           a: '22TB of snapshots, all created after 2026-08-10, accounting for the entire 8-point rise.', o: 'supports', own: 'Heidi Hash — confirmed' }
       ],
+      plan: [
+        ['done', "P1. 6 tenants, ~900 volumes on the affected pool. ceph df, pool history and per-tenant growth exported before any reweight."],
+        ['done', "Escalated L2. Protected the analytics delivery by keeping existing volumes untouched and stopping further SSD growth."],
+        ['done', "MITIGATION: new volume requests routed to the HDD pool at 54%. Analytics cluster unblocked; SSD pool stopped growing."],
+        ['done', "Volume creation on ceph-pool-ssd-01 is slow or fails with ENOSPC; Ceph reports POOL_NEAR_FULL at 91.4%."],
+        ['done', "IS: ceph-pool-ssd-01 at 91%. IS NOT: ceph-pool-hdd-01 at 54% on the same OSD hosts, and all DC2 pools."],
+        ['done', "Distinction: utilisation alone — same cluster, version and driver. Change: backup retention extended 14 to 30 days on 2026-08-10."],
+        ['done', "Known from PRB-0003 — near-full ratio throttles client writes."],
+        ['done', "OSD imbalance eliminated (reweight moved 0.6 points). Runaway tenant eliminated (per-tenant growth flat)."],
+        ['done', "rbd snap ls --all: 22TB of snapshots, all created after the retention change, accounting for the entire 8-point rise."],
+        ['in-progress', "Snapshot purge scheduled in the approved window pending data-owner sign-off. Capacity alerts reinstated at 70/80%. Retention changes now gated by a capacity review."]
+      ],
       causalChain: [
         { why: 'Volume provisioning is slow and fails with ENOSPC', evidence: 'cinder-volume log, 40-volume request' },
         { why: 'Ceph is throttling client writes on the pool', evidence: 'HEALTH_WARN POOL_NEAR_FULL at 91.4%' },
@@ -3354,6 +3436,18 @@
           t: 'Pin all automation to controller-dc1-01 and re-run the pipeline, changing nothing else',
           e: 'Zero 401s while pinned to the controller that holds the issuing key',
           a: '220 API calls, zero 401s while pinned. Root cause confirmed.', o: 'supports', own: 'Alice Verify — confirmed' }
+      ],
+      plan: [
+        ['done', "P2. 4 pipelines, ~220 calls per night. Keystone logs from all three controllers and haproxy access logs preserved."],
+        ['done', "Escalated L2. Protected nightly delivery; orphaned instances from aborted runs cleaned up each morning."],
+        ['done', "MITIGATION: automation pinned to controller-dc1-01 through the load balancer. Jobs complete, but with no redundancy."],
+        ['done', "Service-account tokens are rejected with 401 roughly 15 minutes after issue, despite a 3600s TTL."],
+        ['done', "IS: service accounts holding a token across calls, ~66% failure. IS NOT: interactive users, application credentials, all of DC2."],
+        ['done', "Distinction: key id 3f2a present only on ctrl1. Change: fernet to JWS migration in the 2026-08-14 window."],
+        ['done', "Known from PRB-0004 — validation against a controller lacking the issuing key."],
+        ['done', "Credential expiry eliminated (fresh credentials fail identically). Short TTL eliminated (3600 on all three; failure timing is LB-driven)."],
+        ['done', "Pinned all automation to ctrl1 and re-ran the pipeline: 220 calls, zero 401s. Failure follows the controller, not the account."],
+        ['not-started', "Key repository sync + rolling restart awaiting security sign-off. Config-drift check for the key repo to be added to the deploy pipeline."]
       ],
       causalChain: [
         { why: 'Nightly pipeline aborts partway through', evidence: '401 Unauthorized on roughly 66% of API calls' },
@@ -3478,6 +3572,18 @@
           e: 'Failure disappears entirely once reply size fits the path MTU',
           a: '20/20 leases in under 5s after the MTU revert. Symptom toggled off.', o: 'supports', own: 'Dave Debugger — confirmed' }
       ],
+      plan: [
+        ['done', "P2. ~35% of batch boots failing. dnsmasq logs and a tcpdump capture taken before any MTU change."],
+        ['done', "Protected the campaign timeline by keeping single boots working; scaling paused rather than retried blindly."],
+        ['done', "MITIGATION: subnet MTU reverted to 1500 and boots run in batches of 3. Scaling completes; jumbo frames temporarily lost."],
+        ['done', "Instances boot but 30-40% fail to obtain a DHCP lease on subnet net-app-02."],
+        ['done', "IS: net-app-02 during batch boots of 4+. IS NOT: net-app-01 on the same node at the same concurrency, and single boots on net-app-02."],
+        ['done', "Distinction: subnet MTU 8950 vs 1500 — provider bridge is 1500 in both cases. Change: MTU raised on 2026-08-17."],
+        ['done', "Known from KB-2025-0003 — oversized DHCP replies dropped on the path."],
+        ['done', "Agent overload eliminated (same dnsmasq serves net-app-01 cleanly). Pool exhaustion eliminated (200 of 254 addresses free)."],
+        ['done', "Reverted ONLY the subnet MTU and re-ran the 20-instance boot: 20/20 leases in under 5s. Symptom toggled off."],
+        ['not-started', "Permanent fix needs the network team to raise the provider bridge and uplink to 9000, then restore subnet MTU 8950. MTU consistency check to be added to the change template."]
+      ],
       causalChain: [
         { why: 'Instances boot unreachable with no IP address', evidence: '7 of 20 instances have no lease' },
         { why: 'DHCP replies never reach the instance', evidence: 'tcpdump: replies leave dnsmasq, never arrive at the hypervisor' },
@@ -3601,6 +3707,18 @@
           e: 'If the network is still flapping, counters keep incrementing',
           a: 'Counters clean since 21:46. Network has recovered; the cluster has not.', o: 'refutes', own: 'Eve Eventloop' }
       ],
+      plan: [
+        ['done', "P1. All RPC-heavy operations in HN, ~50% failure. Cluster status, both halves' queue state and switch syslog captured before any reset."],
+        ['done', "Escalated L3. Protected running workloads (data plane unaffected) and paused the compute scale-out."],
+        ['done', "MITIGATION: all services pointed at rabbit@node1. Operations succeed; messaging redundancy temporarily lost."],
+        ['done', "Nova and Neutron report RPC timeouts and agents flap; RabbitMQ logs a network partition that never heals."],
+        ['done', "IS: RPC round trips in HN since 21:48. IS NOT: read-only API calls, running instances, HCMC and DC1 entirely."],
+        ['done', "Distinction: HN saw link flaps, HCMC did not — identical RabbitMQ config on both. Change: switch firmware upgrade at 21:40."],
+        ['done', "Known from KB-2025-0007 — split cluster with partition_handling=ignore never heals."],
+        ['done', "Broker overload eliminated (CPU under 20%, queues shallow). Ongoing network fault eliminated (fabric counters clean since 21:46)."],
+        ['done', "Pointed services at node1 alone: 100% success, agent flapping stopped immediately. Confirms the split rather than a broker fault."],
+        ['not-started', "Cluster reset and rejoin, then pause_minority + net_ticktime 60. Needs Engineering authority and coordination with the in-flight network change."]
+      ],
       causalChain: [
         { why: 'Scale, resize and migration operations fail', evidence: 'MessagingTimeout on roughly 50% of RPC calls' },
         { why: 'RPC replies never return to the caller', evidence: 'Queues diverged across the two cluster halves' },
@@ -3723,6 +3841,18 @@
           t: 'Administratively disable xe-0/0/2 only, change nothing else, then re-measure',
           e: 'Loss drops to 0% at reduced bandwidth',
           a: '0% loss immediately, latency back to 12ms baseline, Galera queue drained. Confirmed.', o: 'supports', own: 'Frank Fixer — confirmed' }
+      ],
+      plan: [
+        ['done', "P1 Platinum. DR replication lagging, RPO at risk. Optical trend, per-member counters and Galera queue state captured."],
+        ['done', "Escalated SRE + vendor. Protected the RPO commitment by prioritising replication traffic while diagnosing."],
+        ['done', "MITIGATION: degraded LAG member administratively removed. 0% loss at 3/4 bandwidth; replication caught up in 18 minutes."],
+        ['done', "8-10% packet loss and latency spikes on the inter-site WAN link; replication lags and cross-site API calls fail."],
+        ['done', "IS: cross-site HN-HCMC traffic, ~25% of flows. IS NOT: intra-site traffic at both ends, and the HN-DC1 path on the same router."],
+        ['done', "Distinction: Rx power below threshold on one member of po1, nominal on po2. Change: none — 11 days of gradual optical degradation."],
+        ['done', "Known from PRB-0006 — degraded transceiver with LAG still hashing flows onto it."],
+        ['done', "Galera-as-cause eliminated (intra-site replication instant). Carrier/far-end eliminated (other three members clean on the same circuit)."],
+        ['done', "Disabled xe-0/0/2 only: 0% loss immediately, latency back to 12ms baseline, Galera queue drained."],
+        ['done', "Transceiver replaced 11:20, member re-added 11:35, clean for 40 min. Per-member Rx and CRC alerting extended to HN and HCMC — the gap that let 11 days pass unnoticed."]
       ],
       causalChain: [
         { why: 'DR replication lags and the RPO is at risk', evidence: 'wsrep_local_recv_queue growing to 4820' },
@@ -3848,6 +3978,18 @@
           e: 'If deployment-wide, the second load balancer also sticks in PENDING_UPDATE',
           a: 'PENDING — this establishes the blast radius and gives the A/B its B side.', o: 'untested', own: 'Dave Debugger' }
       ],
+      plan: [
+        ['done', "P2 Bronze. Configuration changes blocked; existing listeners still serving traffic. Worker, health-manager and amphora logs preserved."],
+        ['done', "Protected the working listeners by NOT failing over the amphora — that would destroy the stuck state."],
+        ['done', "Interim: customer routing through the existing port 443 listener. No platform change made."],
+        ['done', "New Octavia listeners remain in PENDING_UPDATE indefinitely and never transition to ACTIVE."],
+        ['in-progress', "IS: every listener create/update on lb-ingest-dc2, 6 of 6. IS NOT: not yet established — no control case captured."],
+        ['in-progress', "Blast radius unknown. Next: same operation on a second DC2 load balancer and on a DC1 one, to scope per-LB vs per-amphora vs deployment-wide."],
+        ['not-started', "Leading theory: worker taskflow blocked on a stale lock or unreleased claim. Needs the debug capture first."],
+        ['not-started', "Amphora reachability already eliminated (health checks pass, existing traffic served)."],
+        ['not-started', "Cannot verify until a cause is identified. Any test must be single-variable on lb-ingest-dc2 only."],
+        ['not-started', "Strong KB candidate: no article and no Problem record exists for this signature; the one prior sighting self-resolved undiagnosed."]
+      ],
       causalChain: [
         { why: 'Customer cannot add the HTTPS listener and the release is blocked', evidence: '6 of 6 attempts stuck in PENDING_UPDATE' },
         { why: 'The listener never transitions to ACTIVE', evidence: 'openstack loadbalancer show, unchanged for 47 minutes' },
@@ -3970,6 +4112,18 @@
           t: 'Add the renamed group to the mapping on staging only and retry one new-user login, changing nothing else',
           e: 'The new user logs in successfully once the mapping matches',
           a: 'Login succeeded immediately on staging. Root cause confirmed.', o: 'supports', own: 'Judy Java — confirmed' }
+      ],
+      plan: [
+        ['done', "P3. 14 new engineers blocked; existing users unaffected. SAML assertion dumped and Horizon/Keystone logs preserved."],
+        ['done', "Protected onboarding by unblocking users individually rather than changing federation mapping under pressure."],
+        ['done', "MITIGATION: temporary direct role assignments for the 14 users. Outside normal SSO governance, so explicitly temporary."],
+        ['done', "Horizon returns HTTP 500 immediately after the SAML redirect, but only for users created in the last 24 hours."],
+        ['done', "IS: users created after 2026-08-18 17:00. IS NOT: users created before it, application credentials, local accounts."],
+        ['done', "Distinction: group claim \"platform-cloud-users\" vs legacy \"cloud-users\". Change: customer IdP group rename on 2026-08-18, unannounced."],
+        ['done', "Known from KB-2025-0008 — mapping resolution finds no matching rule and raises an unhandled error."],
+        ['done', "Web-tier health eliminated (same node serves existing users). Missing-role eliminated — a direct grant works, which proves mapping is the failing stage."],
+        ['done', "Added the renamed group to the mapping on staging and retried one new-user login: succeeded immediately."],
+        ['in-progress', "Mapping update pending change approval, keeping the legacy group during transition. Synthetic SSO check and a change-notification agreement with the customer IdP team to follow."]
       ],
       causalChain: [
         { why: '14 newly onboarded engineers cannot access the dashboard', evidence: 'HTTP 500 at /auth/websso/ for every attempt' },
@@ -4241,6 +4395,10 @@
     .plan-row .pn.done{background:#198754}
     .plan-row .pn.na{background:var(--bs-secondary)}
     .plan-row .pt{font-weight:650;font-size:.88rem}
+    .plan-row .phase{display:inline-block;font-size:.62rem;font-weight:800;letter-spacing:.7px;
+      padding:.08rem .4rem;border-radius:3px;background:#7c3aed;color:#fff;vertical-align:middle}
+    .plan-row.muted .phase{background:var(--bs-secondary)}
+    .plan-row .pq{font-size:.79rem;font-weight:600;color:#7c3aed;margin-top:.15rem}
     .plan-row .pd{font-size:.79rem;margin-top:.15rem}
     .plan-row .pw{font-size:.72rem;color:var(--bs-secondary-color);margin-top:.2rem;font-style:italic}
     .plan-row .pf{display:grid;grid-template-columns:8rem 9rem 1fr;gap:.35rem;margin-top:.4rem}
@@ -5324,6 +5482,46 @@
         <div id="actionPlanPanel"></div>
         <div id="planSteps"></div>
 
+        <details class="mt-3 mb-3 border rounded" id="planMethod">
+          <summary class="p-2 ai-note" style="cursor:pointer">
+            <i class="fa-solid fa-filter"></i> The funnel and the four governing rules
+          </summary>
+          <div class="p-3 pt-0 row g-3">
+            <div class="col-lg-4">
+              <div class="fw-semibold mb-1" style="font-size:.85rem">The troubleshooting funnel</div>
+              <div class="ai-note">
+                IMPACT → PRIORITIZE → MITIGATE → DEFINE → IS / IS NOT → ISOLATE →
+                DISTINCTIONS + CHANGES → POSSIBLE CAUSES → ELIMINATE → MOST PROBABLE CAUSE →
+                VERIFY → ROOT CAUSE → CORRECT → PREVENT
+              </div>
+              <div class="ai-note mt-2">
+                The objective is not an ever-growing list of possibilities. It is to
+                <strong>continuously reduce the search space until only a defensible cause remains</strong>.
+              </div>
+            </div>
+            <div class="col-lg-8">
+              <div class="fw-semibold mb-1" style="font-size:.85rem">Four governing rules</div>
+              <ol class="ai-note mb-0">
+                <li><strong>Impact before analysis.</strong> If people, customers, safety, revenue or data are being harmed, contain first — but preserve enough evidence to investigate afterwards.</li>
+                <li><strong>Mitigation is not root cause.</strong> A restart, rollback, failover or workaround may restore service without explaining anything. Keep workaround, corrective action and root cause separate.</li>
+                <li><strong>Troubleshooting is progressive isolation.</strong> All customers? No — only Europe. All European systems? No — cluster B. All cluster B nodes? No — newly provisioned. Keep dividing.</li>
+                <li><strong>A cause must explain the IS <em>and</em> the IS NOT</strong> — why here and not there, why then, why that extent. This is the falsification step "5 Whys" has no equivalent for.</li>
+              </ol>
+            </div>
+          </div>
+        </details>
+
+        <h6 class="mt-3 fw-bold">10.0.1 Universal Action Record</h6>
+        <div class="ai-note mb-2">
+          The live one-page state of the investigation, assembled from the sections above.
+          <button class="btn btn-outline-secondary btn-sm py-0 ms-2" type="button" onclick="renderActionRecord()">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle mb-3" id="actionRecord"></table>
+        </div>
+
 
         <!-- 10.0.3 A/B -->
         <h6 class="mt-2 fw-bold">10.0.3 A/B Testing: Deviated Feature vs Same Feature Working</h6>
@@ -6089,6 +6287,17 @@
 
     setCausalChain(ticket.causalChain || []);
 
+    if (ticket.plan && KT_PLAN_TEMPLATE.length) {
+      renderPlanSteps(KT_PLAN_TEMPLATE.map((s, i) => Object.assign({}, s, {
+        status: (ticket.plan[i] || [])[0] || 'not-started',
+        notes:  (ticket.plan[i] || [])[1] || '',
+        owner:  ticket.fields.ticketOwner || ''
+      })));
+    } else {
+      clearPlanSteps();
+    }
+    renderActionRecord();
+
     $('impactedNodesBody').innerHTML = '';
     $('impactedVmsBody').innerHTML = '';
     (ticket.impacted && ticket.impacted.nodes || [[ticket.fields.nodeId, ticket.fields.site, 'impacted']])
@@ -6349,48 +6558,12 @@
   /* That is what stops the linear "5 Whys" walk to a plausible wrong    */
   /* answer.                                                             */
   /* ================================================================== */
-  const KT_PLAN_TEMPLATE = [
-    { n: 1, title: 'Stabilize and protect the evidence',
-      todo: 'Contain the impact and capture current state (configs, versions, counters, logs) BEFORE changing anything. Freeze unrelated changes.',
-      why: 'A fix applied too early destroys the distinctions you need. Containment is not resolution.',
-      where: '§10.1' },
-    { n: 2, title: 'State the deviation',
-      todo: 'One sentence: the object and the defect. What should be happening, and what is happening instead. No theories, no causes.',
-      why: 'A problem is a deviation from expected performance. If you cannot state it in one sentence you cannot test it.',
-      where: '§1.1.1 / §1.1.2' },
-    { n: 3, title: 'Specify it — IS and IS NOT',
-      todo: 'Bound the problem on all four dimensions: WHAT, WHERE, WHEN, EXTENT. For each, record what IS affected and what could be but is NOT.',
-      why: 'The IS NOT half is what most teams skip, and it is what makes the cause testable.',
-      where: '§1.2 / §1.3 / §1.4 / §1.2.7' },
-    { n: 4, title: 'Identify the distinctions',
-      todo: 'What is different, special or unique about the IS compared with the IS NOT? List every difference, however small.',
-      why: 'The cause lives inside a distinction. If nothing distinguishes them, your specification is not sharp enough yet.',
-      where: '§1.1.4 / §10.0.3' },
-    { n: 5, title: 'Identify the changes',
-      todo: 'For each distinction, what changed — and when, relative to the deviation appearing? Include changes that were meant to be harmless.',
-      why: 'Most deviations follow a change. Anchoring changes to distinctions is what separates cause from coincidence.',
-      where: '§6 Changes & History' },
-    { n: 6, title: 'Generate possible causes',
-      todo: 'Derive candidate causes from the distinctions and changes — not from memory or the loudest opinion in the room.',
-      why: 'Causes derived from the specification are testable. Causes derived from experience are guesses.',
-      where: '§10.3' },
-    { n: 7, title: 'Test each cause against the full specification',
-      todo: 'For every candidate ask: if this were the true cause, how does it explain the IS AND the IS NOT? Record assumptions needed to make it fit.',
-      why: 'This is the step 5 Whys has no equivalent for. A cause that needs three assumptions to survive is not your cause.',
-      where: '§10.3' },
-    { n: 8, title: 'Rank and pick the most probable cause',
-      todo: 'The cause that explains the most with the fewest assumptions wins. Choose the one that is cheapest and safest to test first.',
-      why: 'Fewest actions to a confident answer — not the most thorough investigation.',
-      where: '§10.3' },
-    { n: 9, title: 'Verify the true cause',
-      todo: 'Change ONE variable, reversibly, on ONE target. Confirm the symptom toggles off — and back on if you revert.',
-      why: 'Correlation is not confirmation. If it does not toggle, you have not found it.',
-      where: '§10.3 / §10.6' },
-    { n: 10, title: 'Fix, confirm and prevent',
-      todo: 'Apply the minimal safe correction, re-run the reproduction, verify health. Then add monitoring, update the runbook, and publish the KB article.',
-      why: 'A fix that is not written down is a fix you will pay for again.',
-      where: '§10.7' }
-  ];
+  /* The Universal Troubleshooting Action Plan is defined once, in
+     ai_agent.js, so the UI and the agent can never drift apart. */
+  const KT_PLAN_TEMPLATE = (typeof UNIVERSAL_PLAN !== 'undefined')
+    ? UNIVERSAL_PLAN.map(s => Object.assign({ todo: s.question, status: 'not-started' }, s))
+    : [];
+
 
   const PLAN_STATUS = ['not-started', 'in-progress', 'done', 'skipped', 'n/a'];
 
@@ -6403,10 +6576,12 @@
       return '<div class="plan-row' + (na ? ' muted' : '') + '" data-plan-step="' + s.n + '">' +
         '<div class="pn' + (done ? ' done' : na ? ' na' : '') + '">' + (done ? '&#10003;' : s.n) + '</div>' +
         '<div class="pc">' +
-          '<div class="pt">' + esc_(s.title) +
+          '<div class="pt">' +
+            (s.phase ? '<span class="phase">' + esc_(s.phase) + '</span> ' : '') + esc_(s.title) +
             (s.where ? ' <span class="ai-note">' + esc_(s.where) + '</span>' : '') +
             (s.shortcut ? ' <span class="badge bg-success">' + esc_(s.shortcut) + '</span>' : '') +
           '</div>' +
+          (s.question ? '<div class="pq">' + esc_(s.question) + '</div>' : '') +
           '<div class="pd">' + esc_(s.todo) + '</div>' +
           '<div class="pw"><i class="fa-solid fa-circle-info"></i> ' + esc_(s.why) + '</div>' +
           '<div class="pf">' +
@@ -6415,7 +6590,8 @@
                 (s.status === o ? ' selected' : '') + '>' + o + '</option>').join('') +
             '</select>' +
             '<input class="form-control form-control-sm" data-plan="owner" placeholder="Owner" value="' + esc_(s.owner || '') + '">' +
-            '<input class="form-control form-control-sm" data-plan="notes" placeholder="Result / notes" value="' + esc_(s.notes || '') + '">' +
+            '<textarea class="form-control form-control-sm" data-plan="notes" rows="2" ' +
+              'placeholder="Result / notes — what was done, what it showed">' + esc_(s.notes || '') + '</textarea>' +
           '</div>' +
         '</div>' +
         '<div class="pm ai-note">' + (s.est_mins ? '~' + s.est_mins + 'm' : '') + '</div>' +
@@ -6428,6 +6604,72 @@
                       .reduce((t, s) => t + (s.est_mins || 0), 0);
     $('planSummary').innerHTML = steps.length + ' steps · ' + done + ' done · ' +
       skipped + ' not required' + (mins ? ' · <strong>~' + mins + ' min remaining</strong>' : '');
+  }
+
+  /**
+   * The Universal Action Record — one page showing the whole investigation
+   * state. Every row is DERIVED from a section above, so it can never drift
+   * out of step with the ticket.
+   */
+  const RECORD_ROWS = [
+    ['Issue / deviation',        () => val('p1_1')],
+    ['Expected state',           () => val('p1_2')],
+    ['Impact',                   () => [val('p1_3'), val('custSeverity')].filter(Boolean).join(' — ')],
+    ['Priority',                 () => 'P' + val('priority') + ' · ' + val('state')],
+    ['Scope / blast radius',     () => {
+      const p = [];
+      if (val('cntNodes')) p.push(val('cntNodes') + ' nodes');
+      if (val('cntVms')) p.push(val('cntVms') + ' VMs');
+      if (val('cntTenants')) p.push(val('cntTenants') + ' tenants');
+      if (val('cntUsers')) p.push(val('cntUsers') + ' users');
+      const n = collectImpacted('impactedNodesBody').length, v = collectImpacted('impactedVmsBody').length;
+      if (!p.length && (n || v)) p.push(n + ' nodes, ' + v + ' VMs listed');
+      return p.join(' · ');
+    }],
+    ['Mitigation',               () => val('tmpFixSteps') || val('workaround')],
+    ['IS',                       () => [val('extent_is'), val('site') && ('site ' + val('site'))].filter(Boolean).join(' · ')],
+    ['IS NOT',                   () => [val('extent_isnot'), val('otherSites')].filter(Boolean).join(' · ')],
+    ['Distinctions',             () => {
+      const ab = collectABCompareBlocks().map(b => b.distinctions).filter(Boolean).join(' ');
+      return [val('extent_dist'), ab].filter(Boolean).join(' · ');
+    }],
+    ['Changes',                  () => [val('changes'), val('maint'), val('newImages')].filter(Boolean).join(' · ')],
+    ['Hypotheses',               () => collectHypothesisMatrix().map(h => '#' + h.rank + ' ' + h.hypothesis).join(' | ')],
+    ['Evidence for',             () => (collectHypothesisMatrix()[0] || {}).evidence_supports || ''],
+    ['Evidence against',         () => (collectHypothesisMatrix()[0] || {}).evidence_contradicts || ''],
+    ['Next discriminating test', () => {
+      const open = collectHypothesisMatrix().find(h => h.outcome === 'untested');
+      const step = collectPlanSteps().find(s => s.status === 'not-started' || s.status === 'in-progress');
+      return open ? open.single_variable_test : (step ? 'Step ' + step.n + ' — ' + step.title : '');
+    }],
+    ['Most probable cause',      () => {
+      const sup = collectHypothesisMatrix().find(h => h.outcome === 'supports');
+      return val('permRootCause') || (sup ? sup.hypothesis : '');
+    }],
+    ['Verification',             () => [val('permFixTest'), val('permFixResults')].filter(Boolean).join(' → ')],
+    ['Corrective action',        () => val('permFix')],
+    ['Prevention',               () => val('permPrevention')],
+    ['Owner',                    () => val('ticketOwner') || 'unassigned'],
+    ['Status',                   () => {
+      const p = collectPlanSteps();
+      const d = p.filter(s => s.status === 'done').length;
+      return val('state') + (p.length ? ' · plan ' + d + '/' + p.length + ' steps done' : '');
+    }]
+  ];
+
+  function renderActionRecord() {
+    const el = $('actionRecord');
+    if (!el) return;
+    el.innerHTML = '<tbody>' + RECORD_ROWS.map(([label, get]) => {
+      let v = '';
+      try { v = get() || ''; } catch (e) { v = ''; }
+      const empty = !String(v).trim();
+      return '<tr>' +
+        '<th class="table-light" style="width:22%;font-size:.78rem">' + esc_(label) + '</th>' +
+        '<td style="font-size:.8rem"' + (empty ? ' class="ai-note"' : '') + '>' +
+          (empty ? '<em>not captured yet</em>' : esc_(String(v)).replace(/\n/g, '<br>')) +
+        '</td></tr>';
+    }).join('') + '</tbody>';
   }
 
   function clearPlanSteps() {
@@ -6607,7 +6849,7 @@
     const results = KB.search(query, {
       errorSignature: currentErrorSignature(),
       facets: $('simFacetLock').checked ? currentFacets() : {},
-      limit: 6, minScore: 1
+      limit: 3, minScore: 1
     }).filter(r => !$('simVerifiedOnly').checked || (r.article.verification && r.article.verification.verified));
 
     $('simStatus').textContent = results.length
@@ -6695,7 +6937,7 @@
     if (sources.includes('local')) {
       const results = KB.search(q, {
         tags, errorSignature: currentErrorSignature(),
-        facets: currentFacets(), limit: 25, minScore: 1
+        facets: currentFacets(), limit: 3, minScore: 1
       });
       results.forEach(r => {
         renderKbRow({
@@ -6720,7 +6962,7 @@
         .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
         .then(data => {
           loadRow.remove();
-          const list = Array.isArray(data) ? data : (data.articles || data.results || []);
+          const list = (Array.isArray(data) ? data : (data.articles || data.results || [])).slice(0, 3);
           list.forEach(d => renderKbRow({
             source: d.source || 'Remote API',
             title: d.title || 'Untitled',
@@ -7150,6 +7392,7 @@
   let dirtyTimer = null;
   function markDirty() {
     updateReadiness();
+    renderActionRecord();
     clearTimeout(dirtyTimer);
     dirtyTimer = setTimeout(() => saveDraft(false), 3000);
   }
@@ -7803,7 +8046,7 @@
       service_component: val('serviceComponent'),
       problem_id: val('problemId'),
       error_signature_raw: currentErrorSignature()
-    }, 12);
+    }, 3);
 
     $('relatedCasesBody').innerHTML = rows.length ? rows.map(r => {
       const c = r.case;
@@ -8290,6 +8533,7 @@
     addABBlock();
     clearCauses();
     clearPlanSteps();
+    renderActionRecord();
     addImpactedNode();
     addImpactedVm();
     renderAllStepComments();

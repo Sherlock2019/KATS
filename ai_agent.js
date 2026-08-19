@@ -335,18 +335,62 @@
    * are already done and are marked as such, so the engineer goes straight
    * to verification. That is the minimum-action objective made concrete.
    * ================================================================== */
+  /* ---------------------------------------------------------------------
+   * UNIVERSAL TROUBLESHOOTING ACTION PLAN — 10 steps
+   *
+   *   Protect → Prioritize → Mitigate → Define → Isolate →
+   *   Hypothesize → Eliminate → Verify → Correct → Prevent
+   *
+   * Domain-neutral: works for IT, cloud, AI, infrastructure, manufacturing,
+   * operations and business processes. Two funnels run in parallel —
+   * operational (max impact → min impact) and diagnostic (max uncertainty →
+   * min uncertainty).
+   *
+   * Exposed globally so the UI and the agent share one definition.
+   * ------------------------------------------------------------------- */
   const KT_STEPS = [
-    { n: 1, title: 'Stabilize and protect the evidence', where: '§10.1', mins: 20 },
-    { n: 2, title: 'State the deviation', where: '§1.1.1 / §1.1.2', mins: 10 },
-    { n: 3, title: 'Specify it — IS and IS NOT', where: '§1.2 / §1.3 / §1.4 / §1.2.7', mins: 25 },
-    { n: 4, title: 'Identify the distinctions', where: '§1.1.4 / §10.0.3', mins: 20 },
-    { n: 5, title: 'Identify the changes', where: '§6 Changes & History', mins: 15 },
-    { n: 6, title: 'Generate possible causes', where: '§10.3', mins: 20 },
-    { n: 7, title: 'Test each cause against the full specification', where: '§10.3', mins: 25 },
-    { n: 8, title: 'Rank and pick the most probable cause', where: '§10.3', mins: 10 },
-    { n: 9, title: 'Verify the true cause', where: '§10.3 / §10.6', mins: 30 },
-    { n: 10, title: 'Fix, confirm and prevent', where: '§10.7', mins: 45 }
+    { n: 1, phase: 'PROTECT', title: 'Assess impact and protect evidence',
+      question: 'What is the impact, and what evidence must we preserve?',
+      why: 'Before changing anything, understand severity, scope, urgency and business impact. Preserve logs, measurements, state and samples — a fix applied too early destroys what you need to investigate.',
+      where: '§1.1.3 / §1.2.7 / §5', mins: 20 },
+    { n: 2, phase: 'PRIORITIZE', title: 'Prioritize and stabilize',
+      question: 'What must we protect or restore first?',
+      why: 'Deal with the greatest current or potential impact first. Contain the problem and protect people, customers, systems, data, revenue or operations.',
+      where: '§0 Priority / §10.1', mins: 15 },
+    { n: 3, phase: 'MITIGATE', title: 'Find a safe workaround or mitigation',
+      question: 'How can we reduce the damage now without hiding the cause?',
+      why: 'Root-cause analysis takes time. Reduce impact without destroying the evidence needed to investigate. Mitigation is NOT root cause.',
+      where: '§10.6 Temporary Fix', mins: 25 },
+    { n: 4, phase: 'DEFINE', title: 'State and bound the deviation',
+      question: 'What exactly is wrong, and what should be happening instead?',
+      why: 'A vague problem creates vague causes. One sentence: the object and the defect, with no theory in it.',
+      where: '§1.1.1 / §1.1.2', mins: 10 },
+    { n: 5, phase: 'SPECIFY', title: 'Specify the problem — IS / IS NOT',
+      question: 'Where does the problem occur, and where could it occur but does not?',
+      why: 'Establish boundaries on WHAT, WHERE, WHEN and EXTENT. The unaffected comparison population is often more informative than the failure itself.',
+      where: '§1.2 / §1.3 / §1.4 / §1.2.7', mins: 25 },
+    { n: 6, phase: 'ISOLATE', title: 'Isolate through distinctions and changes',
+      question: 'What is different, and what changed around that difference?',
+      why: 'Progressively narrow the search space. Compare affected against unaffected, identify what is different, then what changed around that difference.',
+      where: '§1.1.4 / §6 / §10.0.3', mins: 25 },
+    { n: 7, phase: 'HYPOTHESIZE', title: 'Generate possible causes',
+      question: 'What mechanisms could produce exactly this pattern?',
+      why: 'Generate hypotheses from evidence, distinctions, dependencies and changes — not from experience or intuition alone.',
+      where: '§10.3', mins: 20 },
+    { n: 8, phase: 'ELIMINATE', title: 'Test, eliminate and rank causes',
+      question: 'Which causes explain all the evidence with the fewest assumptions?',
+      why: 'Challenge every hypothesis against the complete specification. Eliminate any cause that contradicts an important IS or IS NOT fact, then rank what survives.',
+      where: '§10.3', mins: 25 },
+    { n: 9, phase: 'VERIFY', title: 'Verify the true cause',
+      question: 'Can changing this factor predictably make the problem appear or disappear?',
+      why: 'Do not confuse correlation with causation. Confirm through observation, reproduction, controlled change, substitution or rollback.',
+      where: '§10.3 / §10.6', mins: 30 },
+    { n: 10, phase: 'CORRECT & PREVENT', title: 'Correct, confirm and prevent recurrence',
+      question: 'Did we really fix it, why was it possible, and how do we stop it happening again?',
+      why: 'Implement the permanent corrective action, verify normal operation is restored, identify systemic contributing causes, and capture the learning.',
+      where: '§10.7', mins: 45 }
   ];
+  global.UNIVERSAL_PLAN = KT_STEPS;
 
   function doActionPlan(ctx) {
     const t = doTriage(ctx);
@@ -369,56 +413,57 @@
     const wad = t.verdict === 'works_as_designed';
 
     const detail = {
-      1: known
-        ? 'Apply the documented containment from ' + src + ': ' +
+      1: 'Record severity, blast radius and who is affected. ' +
+         (ctx.site ? 'Impact is visible at ' + ctx.site + '. ' : '') +
+         'Snapshot logs, configs, versions and counters BEFORE any change — mitigation destroys evidence.',
+      2: 'Priority is currently P' + (ctx.priority || '?') + '. Decide what must be protected or restored first: ' +
+         'customer service, data integrity, or the remaining healthy capacity.',
+      3: known
+        ? 'A proven mitigation exists in ' + src + ': ' +
           ((problem && problem.workaround) || (kb && kb.workaround) || 'see the article') +
-          '. Capture state first so the evidence survives.'
-        : 'Contain the impact on ' + comp + ' and snapshot configs, versions, counters and logs before changing anything. Freeze unrelated changes.',
-      2: ctx.deviation
-        ? 'Already stated: "' + String(ctx.deviation).slice(0, 120) + '". Confirm it names an object and a defect, and contains no theory.'
-        : 'Write one sentence: what should happen, and what happens instead. No causes yet.',
-      3: 'Bound it on WHAT / WHERE / WHEN / EXTENT. Record the healthy comparables as the IS NOT set — ' +
-         (ctx.site ? 'you have ' + ctx.site + ' affected; name a site or node that is NOT.' : 'name what is comparable but working.'),
-      4: known
-        ? 'ALREADY KNOWN from ' + src + ': ' +
+          '. Apply it, and record it as MITIGATION — not as the fix.'
+        : 'Find the smallest safe action that reduces impact without hiding the cause. Avoid a blanket restart if it erases the failing state.',
+      4: ctx.deviation
+        ? 'Stated: "' + String(ctx.deviation).slice(0, 110) + '". Confirm it names an object and a defect, and contains no theory.'
+        : 'One sentence: what should be happening, and what is happening instead.',
+      5: 'Bound it on WHAT / WHERE / WHEN / EXTENT. ' +
+         (ctx.site ? 'You have ' + ctx.site + ' affected — now name a comparable site, node or tenant that is NOT.'
+                   : 'Name the comparable cases that are healthy.') +
+         ' The IS NOT population is the more informative half.',
+      6: known
+        ? 'ALREADY ISOLATED by ' + src + ': ' +
           ((kb && kb.distinctions && kb.distinctions[0])
             ? kb.distinctions[0].dimension + ' — IS ' + kb.distinctions[0].is + ' / IS NOT ' + kb.distinctions[0].is_not
             : 'see the documented distinction') +
-          '. Confirm it holds here rather than re-deriving it.'
-        : 'List every way the IS differs from the IS NOT — site, node, image, version, config, tenant, timing.',
-      5: known
-        ? 'The documented trigger is on record. Confirm the same change class applies to this occurrence.'
-        : 'For each distinction, what changed and when relative to the deviation? Include changes believed harmless.',
-      6: known
-        ? 'ALREADY KNOWN: ' + ((problem && problem.root_cause_statement) || (kb && kb.root_cause) || '').slice(0, 160) +
-          '. Do not regenerate causes — go to verification.'
-        : 'Derive candidates from the distinctions and changes above. Use §10.3 to rank three.',
+          '. Confirm the same distinction holds here rather than re-deriving it.'
+        : 'Divide the search space: all customers? all sites? all nodes? all versions? Keep splitting until few mechanisms remain, then ask what changed around that difference.',
       7: known
-        ? 'Already validated against the specification when ' + src + ' was raised.'
-        : 'For each candidate ask: does it explain the IS AND the IS NOT? Note every assumption it needs to survive.',
+        ? 'ALREADY KNOWN: ' + ((problem && problem.root_cause_statement) || (kb && kb.root_cause) || '').slice(0, 150) +
+          '. Do not regenerate hypotheses.'
+        : 'What mechanisms could produce exactly this pattern? Derive them from the distinctions and changes, not from memory.',
       8: known
-        ? 'Single candidate carried over from ' + src + '.'
-        : 'Pick the cause explaining most with fewest assumptions, and cheapest to test.',
+        ? 'Already tested against the specification when ' + src + ' was raised.'
+        : 'For each candidate ask: does it explain the IS AND the IS NOT, the WHEN and the EXTENT? Eliminate any that contradict a known fact; rank the survivors by assumptions needed.',
       9: known
-        ? 'Apply the documented fix on ONE target and confirm the symptom toggles off: ' +
+        ? 'Apply the documented fix to ONE target and confirm the symptom toggles off: ' +
           ((kb && kb.verification && kb.verification.test) || 're-run the reproduction')
-        : 'Change ONE variable, reversibly, on ONE target. Confirm the symptom toggles off — and back on if reverted.',
+        : 'Make the problem appear or disappear on demand. Change ONE factor, reversibly, on ONE target.',
       10: known
-        ? 'Apply the permanent fix from ' + src + ', re-run the reproduction, then link this case to the Problem so recurrence is counted.'
-        : 'Apply the minimal safe correction, re-run the reproduction, verify health, add monitoring, publish the KB article.'
+        ? 'Apply the permanent fix from ' + src + ', re-run the reproduction, then link this case to the Problem so recurrence is counted and the systemic cause stays visible.'
+        : 'Apply the minimal safe correction, confirm normal operation, identify why this was possible at all, add monitoring or a guardrail, and publish the KB article.'
     };
 
     r.plan_steps = KT_STEPS.map(s => {
       let status = 'not-started', shortcut = '', mins = s.mins;
-      if (wad && s.n >= 4 && s.n <= 9) { status = 'n/a'; shortcut = 'not a fault'; mins = 0; }
-      else if (known && s.n >= 4 && s.n <= 8) { status = 'done'; shortcut = 'known from ' + src; mins = 0; }
-      else if (ctx.deviation && s.n === 2) { status = 'done'; mins = 0; }
+      if (wad && s.n >= 5 && s.n <= 9) { status = 'n/a'; shortcut = 'not a fault'; mins = 0; }
+      else if (known && s.n >= 6 && s.n <= 8) { status = 'done'; shortcut = 'known from ' + src; mins = 0; }
+      else if (ctx.deviation && s.n === 4) { status = 'done'; mins = 0; }
       return {
         n: s.n, title: s.title, where: s.where, status, shortcut,
         todo: wad && s.n === 10
           ? 'No fix required. Send the customer the documented behaviour and the correct validation method, set root cause = works-as-designed, and close.'
           : detail[s.n],
-        why: KT_WHY[s.n], est_mins: mins, owner: '', notes: ''
+        why: s.why, phase: s.phase, question: s.question, est_mins: mins, owner: '', notes: ''
       };
     });
 
@@ -436,25 +481,14 @@
         ? 'Known cause from ' + src + ' — ' + skipped + ' of 10 KT steps are already answered. Go straight to verification.'
         : 'No prior knowledge — run the full 10-step KT sequence. ' + remaining.length + ' steps to work.';
     r.reasoning = t.reasoning.concat([
-      'Steps 4-8 (distinctions → changes → generate → test → rank) are the expensive middle of KT.',
+      'Steps 6-8 (isolate → hypothesize → eliminate) are the expensive middle of any investigation.',
       known ? 'They are skipped here because ' + src + ' already carries a validated cause — that is where the time saving comes from.'
             : 'They cannot be skipped here: nothing in the KB or the customer history matches this signature.'
     ]);
     return finish(r);
   }
 
-  const KT_WHY = {
-    1: 'A fix applied too early destroys the distinctions you need.',
-    2: 'If you cannot state the deviation in one sentence you cannot test it.',
-    3: 'The IS NOT half is what makes a cause testable.',
-    4: 'The cause lives inside a distinction.',
-    5: 'Anchoring changes to distinctions separates cause from coincidence.',
-    6: 'Causes derived from the specification are testable; causes from memory are guesses.',
-    7: 'A cause needing three assumptions to survive is not your cause.',
-    8: 'Fewest actions to a confident answer, not the most thorough investigation.',
-    9: 'Correlation is not confirmation. If it does not toggle, you have not found it.',
-    10: 'A fix that is not written down is a fix you will pay for again.'
-  };
+
 
   /* =====================================================================
    * TASK: probable_causes
