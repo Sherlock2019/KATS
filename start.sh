@@ -2,8 +2,10 @@
 # =============================================================================
 # start.sh — serve the KT Support demo and open it in a browser.
 #
-#   ./start.sh              serve kt_support_demo.html   (standalone, ship this)
-#   ./start.sh dev          serve kt_support_v8.html     (multi-file source)
+#   ./start.sh              chooser page
+#   ./start.sh kats         serve kt_support_demo_v9.html (standalone, ship this)
+#   ./start.sh v8           serve kt_support_demo.html    (previous release)
+#   ./start.sh dev          serve kt_support_v9.html      (multi-file source)
 #   ./start.sh --port 9000  use a specific port
 #   ./start.sh --no-open    don't launch a browser
 #   ./start.sh --build      rebuild the standalone file first, then serve
@@ -20,8 +22,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 LANDING_FILE="rax_ticket_support_page.html"
-DEMO_FILE="kt_support_demo.html"
-DEV_FILE="kt_support_v8.html"
+DEMO_FILE="kt_support_demo_v9.html"
+DEMO_V8_FILE="kt_support_demo.html"
+DEV_FILE="kt_support_v9.html"
 
 PAGE="$LANDING_FILE"
 PORT=8000
@@ -33,6 +36,7 @@ while [ $# -gt 0 ]; do
     dev|--dev)      PAGE="$DEV_FILE"; shift ;;
     demo|--demo)    PAGE="$DEMO_FILE"; shift ;;
     kats|--kats)    PAGE="$DEMO_FILE"; shift ;;
+    v8|--v8)        PAGE="$DEMO_V8_FILE"; shift ;;
     core|--core)    PAGE="core_ticket_rebuilt.html"; shift ;;
     -p|--port)      PORT="${2:-8000}"; shift 2 ;;
     --no-open)      OPEN_BROWSER=0; shift ;;
@@ -49,7 +53,7 @@ if [ "$DO_BUILD" -eq 1 ]; then
     exit 1
   fi
   echo "Rebuilding $DEMO_FILE ..."
-  node build_demo.js
+  node build_demo.js v9
   echo
 fi
 
@@ -61,7 +65,7 @@ if [ ! -f "$PAGE" ]; then
 fi
 
 if [ "$PAGE" = "$DEV_FILE" ]; then
-  for dep in kb_database.js kt_data.js ai_agent.js; do
+  for dep in kb_database.js kt_data.js kt_topology.js kt_pipeline.js kt_intake.js ai_agent.js; do
     if [ ! -f "$dep" ]; then
       echo "ERROR: dev mode needs $dep next to $DEV_FILE" >&2
       exit 1
@@ -123,14 +127,32 @@ cat <<BANNER
   URL     : $URL
   Dir     : $(pwd)
 
+  Pipeline: PRIORITIZE -> CONTAIN -> DEFINE -> NARROW -> TEST -> CONFIRM -> FIX
+    "Stop the impact. Narrow the difference. Test one variable.
+     Prove the cause. Fix it forever."
+
+  Customer path (the view switch at the top):
+    A. "Customer ticket view" -> "Fill with demo data" -> Submit
+       -> ticket number issued, quality scored, known issue surfaced
+    B. "Open in support view" -> the same ticket, already in the KT form,
+       in the dashboard, in Customer 360 and on the topology map
+
   Demo path:
-    1. Load ticket INC0009001            -> customer + Problem auto-match
-    2. "Use AI Agent - Triage"           -> RECURRENCE of PRB-0001, saves ~175 min
-    3. Paste into 1.1.6:
-       security group rule added but traffic still blocked
-       then Triage again                 -> WORKS AS DESIGNED (do not troubleshoot)
-    4. Section 10.3 "propose action plan" -> Accept & apply
-    5. Tabs: Customer 360 / Root Cause - Problems
+    1. Load a demo ticket                -> customer + Problem auto-match
+    2. The sticky pipeline bar at the top -> 8 stages, the middle three
+       bracketed as a LOOP with a pass counter; every chip's state is
+       computed from the fields, and NEXT BEST ACTION sits under it
+    3. Clear "Error message" in 5.1      -> PRIORITIZE drops to "1 missing"
+       and CONTAIN goes "blocked by PRIORITIZE" (evidence is a gate)
+    4. Set severity 3 + blast "specific user" + trend "stable"
+                                         -> CONTAIN auto-marks "not required"
+    5. Section 0.1 Customer Topology     -> mind map of every OPEN ticket,
+       customer > site > infra location > issue; "Tree" view is clickable
+    6. "Ticket history" next to Customer -> 3 days / week / month / custom
+    7. Section 10.0 "Plan the pipeline"  -> RECURRENCE of PRB-0001; NARROW
+       and TEST come back already answered, CONFIRM does not
+    8. Section 10.6 Loop log             -> one row per pass around the loop
+    9. Tabs: Customer 360 / Root Cause - Problems
 
   NOTE: the AI Agent is a MOCK. No model is called.
 

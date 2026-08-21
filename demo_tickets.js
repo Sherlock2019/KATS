@@ -39,6 +39,13 @@
         error_signature_raw: 'No port found in network None with IP address 169.254.169.254'
       },
       fields: {
+        impactTrend: "stable",
+        cntNodes: "2",
+        cntVms: "12",
+        cntTenants: "1",
+        cntUsers: "0",
+        confirmToggle: "Restarted neutron-ovn-metadata-agent on compute-hn-04 only — no other change.",
+        confirmObserved: "ovnmeta namespace restored in 20s; vm-cb-win-08 built on hn-04 with config-drive disabled reached ACTIVE in 88s. Symptom toggled off.",
         ticketNumber: 'HNB-HN-0001', state: 'In Progress', severity: '2', escalation: 'L2',
         ticketOwner: 'Bob Builder', supportLevel: 'L2',
         customerId: 'hn-bank', company: 'core-banking / proj-rocket',
@@ -162,22 +169,25 @@
           { author: 'Grace Git', at: '2026-08-17 10:12 GMT+7',
             text: 'compute-hn-09 was added after a second sweep — it had the same 08:55 agent restart. compute-hn-01 is listed deliberately as the healthy control for the A/B.' }
         ],
-        '10.3 Probable Causes & Test Plan': [
+        '10.5 TEST — Probable Causes & Next Test': [
           { author: 'Bob Builder', at: '2026-08-17 10:40 GMT+7',
             text: 'Tested cause #2 first because it was reversible and cheap. Symptom toggled off within 20s, so we did not need to run #1 or #3.' }
         ]
       },
+      prio: [
+        ["Build with --config-drive true and steer new builds off compute-hn-04","The 12 remaining core-banking Windows builds","high",20,"yes",true],
+        ["Capture the ovnmeta namespace state and agent logs on hn-04","The ability to diagnose this at all once the agent is restarted","high",15,"yes",false],
+        ["Evacuate every instance off compute-hn-04","Nothing more than the hint does — and it moves 40 running VMs","medium",90,"no",false]
+      ],
       plan: [
-        ['done', "P1. 12 Windows builds blocked across compute-hn-04 and hn-09. Console output, nova-api-metadata and ovn-metadata-agent logs captured BEFORE any restart."],
-        ['done', "Escalated L2, duty manager notified. Protected remaining capacity by pinning new builds away from the two affected nodes."],
-        ['done', "MITIGATION (not a fix): builds redirected to HCMC and launched with --config-drive true. 12/12 VMs delivered on the workaround."],
-        ['done', "Windows VM creation fails in HN; cloudbase-init hangs and metadata logs \"No port found\" for 169.254.169.254."],
-        ['done', "IS: Windows builds on hn-04/hn-09. IS NOT: Linux on the same nodes, Windows on hn-01/02/03, all of HCMC. WHEN: from 09:12, 17 min after the 08:55 patch run."],
-        ['done', "Distinction: ovnmeta namespace absent on hn-04/09, present on hn-01. Change: ovn-metadata-agent restarted at 08:55."],
-        ['done', "Not regenerated — signature matched PRB-0001, which already carries a validated mechanism."],
-        ['done', "Image eliminated (v3 and v4 both fail on hn-04, both succeed on hn-01). Network-wide eliminated (port bound on hn-01/02/03)."],
-        ['done', "Restarted the agent on hn-04 ONLY. Namespace restored in 20s; vm-cb-win-08 built with config-drive disabled. Symptom toggled off."],
-        ['in-progress', "Reconciliation hook rolling out to all HN compute nodes. force_config_drive=True for Windows images pending CHG. Alert on missing ovnmeta namespace deployed."]
+        ["done", "P1. 12 Windows builds blocked across compute-hn-04 and hn-09. Console output, nova-api-metadata and ovn-metadata-agent logs captured BEFORE any restart."],  // IMPACT
+        ["done", "Escalated L2, duty manager notified. Protected remaining capacity by pinning new builds away from the two affected nodes."],  // PRIORITIZE
+        ["done", "MITIGATION (not a fix): builds redirected to HCMC and launched with --config-drive true. 12/12 VMs delivered on the workaround."],  // CONTAIN
+        ["done", "Windows VM creation fails in HN; cloudbase-init hangs and metadata logs \"No port found\" for 169.254.169.254. · IS: Windows builds on hn-04/hn-09. IS NOT: Linux on the same nodes, Windows on hn-01/02/03, all of HCMC. WHEN: from 09:12, 17 min after the 08:55 patch run."],  // DEFINE
+        ["done", "Distinction: ovnmeta namespace absent on hn-04/09, present on hn-01. Change: ovn-metadata-agent restarted at 08:55."],  // NARROW
+        ["done", "Not regenerated — signature matched PRB-0001, which already carries a validated mechanism. · Image eliminated (v3 and v4 both fail on hn-04, both succeed on hn-01). Network-wide eliminated (port bound on hn-01/02/03)."],  // TEST
+        ["done", "Restarted the agent on hn-04 ONLY. Namespace restored in 20s; vm-cb-win-08 built with config-drive disabled. Symptom toggled off."],  // CONFIRM
+        ["in-progress", "Reconciliation hook rolling out to all HN compute nodes. force_config_drive=True for Windows images pending CHG. Alert on missing ovnmeta namespace deployed."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Windows guests boot unconfigured — no hostname, no injected key', evidence: 'Guest console: cloudbase-init retry 12/30' },
@@ -203,6 +213,13 @@
         error_signature_raw: 'ovn-northd Raft leader election; port binding timed out after 300 seconds'
       },
       fields: {
+        impactTrend: "stable",
+        cntNodes: "2",
+        cntVms: "340",
+        cntTenants: "9",
+        cntUsers: "0",
+        confirmToggle: "Enabled use_logical_dp_groups on the HN northd only, then pushed a single 50-rule batch.",
+        confirmObserved: "northd peaked at 41%, zero Raft elections, zero packet loss and port binding under 4s. Symptom toggled off.",
         ticketNumber: 'HNB-HN-0002', state: 'In Progress', severity: '1', escalation: 'L3',
         ticketOwner: 'Grace Git', supportLevel: 'L3',
         customerId: 'hn-bank', company: 'core-banking / security-uplift',
@@ -303,17 +320,31 @@
           e: 'If Raft is the cause, a longer timer alone removes the impact',
           a: 'Elections reduced but loss persisted — timer alone is insufficient', o: 'inconclusive', own: 'Ivan Integer — contributing, not causal' }
       ],
+      impacted: {
+        nodes: [
+          ["network-hn-01","network / HN AZ1","degraded — ovn-northd at 100% CPU during pushes"],
+          ["network-hn-02","network / HN AZ1","degraded — Raft follower, election churn"],
+          ["network-hcmc-01","network / HCMC","healthy — control case (IS NOT), 2k ACLs vs 12k"]
+        ],
+        vms: [
+          ["~340 instances across 9 tenants","HN tenant networks","30–90s connectivity gaps during push bursts"],
+          ["HCMC tenant instances","HCMC tenant networks","healthy — identical script, no impact (IS NOT)"]
+        ]
+      },
+      prio: [
+        ["Stop the rule loop and resume in 50-rule batches with a 2s pause","The HN control plane and the 340 instances losing connectivity","high",10,"yes",true],
+        ["Snapshot northd CPU, Raft election counts and port-binding times","The evidence that the rate, not the rule count, is the trigger","high",15,"yes",false],
+        ["Fail the HN OVN cluster over to HCMC","Less than throttling does, and it moves the whole control plane","medium",45,"no",false]
+      ],
       plan: [
-        ['done', "P1. 340 instances across 9 tenants seeing 30-90s gaps. northd CPU, Raft term changes and Grafana window exported before touching config."],
-        ['done', "Escalated L3. Protected the data plane by halting the PCI push at rule 2,100 of 4,000."],
-        ['done', "MITIGATION: rule push throttled to batches of 50 with a 2s pause. Impact stopped within 6 minutes."],
-        ['done', "Tenant networks lose connectivity for 30-90s and port binding times out at 300s during bulk security-group writes."],
-        ['done', "IS: HN during push bursts. IS NOT: HCMC running the identical script, and HN between bursts. EXTENT scales with push rate."],
-        ['done', "Distinction: HN carries 12,000 ACLs against HCMC 2,000. Change: PCI-DSS rollout script started 14:15."],
-        ['done', "Known from PRB-0002 — full logical-flow recompute per rule write."],
-        ['done', "Fabric congestion eliminated (counters clean, loss stops when script pauses). Raft-as-cause eliminated (timer alone insufficient)."],
-        ['done', "Enabled use_logical_dp_groups on HN only, re-ran one 50-rule batch: northd peaked 41%, zero elections, zero loss."],
-        ['in-progress', "dp-groups + Raft timer applied. Remaining 1,900 rules queued. northd CPU alert at 70%/5min deployed; runbook RB-208 updated."]
+        ["done", "P1. 340 instances across 9 tenants seeing 30-90s gaps. northd CPU, Raft term changes and Grafana window exported before touching config."],  // IMPACT
+        ["done", "Escalated L3. Protected the data plane by halting the PCI push at rule 2,100 of 4,000."],  // PRIORITIZE
+        ["done", "MITIGATION: rule push throttled to batches of 50 with a 2s pause. Impact stopped within 6 minutes."],  // CONTAIN
+        ["done", "Tenant networks lose connectivity for 30-90s and port binding times out at 300s during bulk security-group writes. · IS: HN during push bursts. IS NOT: HCMC running the identical script, and HN between bursts. EXTENT scales with push rate."],  // DEFINE
+        ["done", "Distinction: HN carries 12,000 ACLs against HCMC 2,000. Change: PCI-DSS rollout script started 14:15."],  // NARROW
+        ["done", "Known from PRB-0002 — full logical-flow recompute per rule write. · Fabric congestion eliminated (counters clean, loss stops when script pauses). Raft-as-cause eliminated (timer alone insufficient)."],  // TEST
+        ["done", "Enabled use_logical_dp_groups on HN only, re-ran one 50-rule batch: northd peaked 41%, zero elections, zero loss."],  // CONFIRM
+        ["in-progress", "dp-groups + Raft timer applied. Remaining 1,900 rules queued. northd CPU alert at 70%/5min deployed; runbook RB-208 updated."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Tenants lose connectivity for 30-90 seconds', evidence: 'Inter-instance ping loss during push bursts' },
@@ -339,6 +370,13 @@
         error_signature_raw: 'security group rule added but traffic still blocked'
       },
       fields: {
+        impactTrend: "stable",
+        cntNodes: "1",
+        cntVms: "2",
+        cntTenants: "1",
+        cntUsers: "0",
+        confirmToggle: "Re-ran the customer's exact command, validating connectivity at T+4s and again at T+60s.",
+        confirmObserved: "T+4s blocked (expected), T+60s passed. ovn-controller installed the flow at T+38s — inside the documented 60s envelope. Not a fault.",
         ticketNumber: 'HCC-HCMC-0003', state: 'In Progress', severity: '3', escalation: 'none',
         ticketOwner: 'Charlie Checker', supportLevel: 'L1',
         customerId: 'hcmc-commerce', company: 'storefront / web-tier',
@@ -436,17 +474,30 @@
           e: 'Early test fails, later test succeeds, with no change to the platform',
           a: 'T+4s blocked, T+60s succeeded. No defect. Confirmed works-as-designed.', o: 'supports', own: 'Charlie Checker — closed WAD' }
       ],
+      impacted: {
+        nodes: [
+          ["compute-hcmc-02","compute / HCMC AZ1","works as designed — flow installs at T+38s"],
+          ["compute-hcmc-01","compute / HCMC AZ1","healthy — same behaviour, not reported (IS NOT)"]
+        ],
+        vms: [
+          ["vm-web-04 → vm-pay-01 at T+4s","compute-hcmc-02","SG rule appears not to apply"],
+          ["vm-web-04 → vm-pay-01 at T+60s","compute-hcmc-02","healthy — traffic passes (IS NOT)"]
+        ]
+      },
+      prio: [
+        ["Tell the customer to re-test 60s after the rule change","The customer's time — and stops a change being made for nothing","high",5,"yes",true],
+        ["Capture the ovn-controller flow-install timestamps for the rule","The proof that this is documented behaviour, not a fault","high",15,"yes",false],
+        ["Roll back the security-group change","Nothing — the rule is correct and the traffic passes at T+60s","low",20,"no",false]
+      ],
       plan: [
-        ['done', "P3. No service impact. Customer pipeline held. Captured the exact command sequence and timestamps."],
-        ['done', "Nothing to restore — existing traffic unaffected. Confirmed no rules were lost."],
-        ['n/a', "No mitigation needed; there is no fault to mitigate."],
-        ['done', "Customer reports a new security-group rule \"does not work\" when tested immediately after the API returns 201."],
-        ['done', "IS: validation within ~10s of the API call. IS NOT: the same rule validated after 60s, which always succeeds."],
-        ['done', "The only distinction is elapsed time between API 200 and the connectivity test. Nothing changed on the platform."],
-        ['n/a', "No causal mechanism to generate — the behaviour is inside the documented envelope."],
-        ['n/a', "Wrong-rule and flow-install-failure both eliminated at step 6."],
-        ['done', "Ran the identical test at T+4s (blocked) and T+60s (succeeds). ovn-controller installed the flow at T+38s."],
-        ['done', "Closed works-as-designed. Customer sent the behaviour reference and a polling snippet. 4th occurrence — documentation request raised on PRB-0005."]
+        ["done", "P3. No service impact. Customer pipeline held. Captured the exact command sequence and timestamps."],  // IMPACT
+        ["done", "Nothing to restore — existing traffic unaffected. Confirmed no rules were lost."],  // PRIORITIZE
+        ["n/a", "No mitigation needed; there is no fault to mitigate."],  // CONTAIN
+        ["done", "Customer reports a new security-group rule \"does not work\" when tested immediately after the API returns 201. · IS: validation within ~10s of the API call. IS NOT: the same rule validated after 60s, which always succeeds."],  // DEFINE
+        ["done", "The only distinction is elapsed time between API 200 and the connectivity test. Nothing changed on the platform."],  // NARROW
+        ["n/a", "No causal mechanism to generate — the behaviour is inside the documented envelope. · Wrong-rule and flow-install-failure both eliminated at step 6."],  // TEST
+        ["done", "Ran the identical test at T+4s (blocked) and T+60s (succeeds). ovn-controller installed the flow at T+38s."],  // CONFIRM
+        ["done", "Closed works-as-designed. Customer sent the behaviour reference and a polling snippet. 4th occurrence — documentation request raised on PRB-0005."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Customer reports the firewall rule does not work', evidence: 'curl timed out at T+4s' },
@@ -472,6 +523,13 @@
         error_signature_raw: 'HEALTH_WARN pool nearfull POOL_NEAR_FULL ENOSPC creating volume'
       },
       fields: {
+        impactTrend: "growing",
+        cntNodes: "12",
+        cntVms: "900",
+        cntTenants: "6",
+        cntUsers: "0",
+        confirmToggle: "Purged the orphaned snapshots from ceph-pool-ssd-01 only — no other pool touched.",
+        confirmObserved: "Pool dropped 91.4% → 63%, HEALTH_OK restored, 10 × 500GB volumes created in 11s average. Write latency back to baseline.",
         ticketNumber: 'DC1S-DC1-0004', state: 'In Progress', severity: '2', escalation: 'L2',
         ticketOwner: 'Heidi Hash', supportLevel: 'L2',
         customerId: 'dc1-shared', company: 'analytics-platform / spark-cluster',
@@ -571,17 +629,30 @@
           e: 'Snapshot growth begins on the change date and accounts for the capacity delta',
           a: '22TB of snapshots, all created after 2026-08-10, accounting for the entire 8-point rise.', o: 'supports', own: 'Heidi Hash — confirmed' }
       ],
+      impacted: {
+        nodes: [
+          ["ceph-osd-dc1-01..12","storage / DC1","degraded — SSD pool at 91.4%, near-full ratio crossed"],
+          ["ceph-osd-dc2-01..08","storage / DC2","healthy — control case (IS NOT), pool at 54%"]
+        ],
+        vms: [
+          ["spark-data-01..40","ceph-pool-ssd-01","volume create ENOSPC, attach latency up 4×"],
+          ["volumes on ceph-pool-hdd-01","DC1 HDD tier","healthy — under 75% utilisation (IS NOT)"]
+        ]
+      },
+      prio: [
+        ["Point new volumes at ceph-pool-hdd-01 and rebuild spark-data on it","All new DC1 volume requests, at reduced IOPS","high",25,"yes",true],
+        ["Snapshot pool utilisation, the orphan list and write latency","The evidence that orphaned snapshots, not real growth, filled the pool","high",15,"yes",false],
+        ["Raise the near-full ratio to buy space","A few hours — and it moves the cliff closer without moving the cause","medium",5,"no",false]
+      ],
       plan: [
-        ['done', "P1. 6 tenants, ~900 volumes on the affected pool. ceph df, pool history and per-tenant growth exported before any reweight."],
-        ['done', "Escalated L2. Protected the analytics delivery by keeping existing volumes untouched and stopping further SSD growth."],
-        ['done', "MITIGATION: new volume requests routed to the HDD pool at 54%. Analytics cluster unblocked; SSD pool stopped growing."],
-        ['done', "Volume creation on ceph-pool-ssd-01 is slow or fails with ENOSPC; Ceph reports POOL_NEAR_FULL at 91.4%."],
-        ['done', "IS: ceph-pool-ssd-01 at 91%. IS NOT: ceph-pool-hdd-01 at 54% on the same OSD hosts, and all DC2 pools."],
-        ['done', "Distinction: utilisation alone — same cluster, version and driver. Change: backup retention extended 14 to 30 days on 2026-08-10."],
-        ['done', "Known from PRB-0003 — near-full ratio throttles client writes."],
-        ['done', "OSD imbalance eliminated (reweight moved 0.6 points). Runaway tenant eliminated (per-tenant growth flat)."],
-        ['done', "rbd snap ls --all: 22TB of snapshots, all created after the retention change, accounting for the entire 8-point rise."],
-        ['in-progress', "Snapshot purge scheduled in the approved window pending data-owner sign-off. Capacity alerts reinstated at 70/80%. Retention changes now gated by a capacity review."]
+        ["done", "P1. 6 tenants, ~900 volumes on the affected pool. ceph df, pool history and per-tenant growth exported before any reweight."],  // IMPACT
+        ["done", "Escalated L2. Protected the analytics delivery by keeping existing volumes untouched and stopping further SSD growth."],  // PRIORITIZE
+        ["done", "MITIGATION: new volume requests routed to the HDD pool at 54%. Analytics cluster unblocked; SSD pool stopped growing."],  // CONTAIN
+        ["done", "Volume creation on ceph-pool-ssd-01 is slow or fails with ENOSPC; Ceph reports POOL_NEAR_FULL at 91.4%. · IS: ceph-pool-ssd-01 at 91%. IS NOT: ceph-pool-hdd-01 at 54% on the same OSD hosts, and all DC2 pools."],  // DEFINE
+        ["done", "Distinction: utilisation alone — same cluster, version and driver. Change: backup retention extended 14 to 30 days on 2026-08-10."],  // NARROW
+        ["done", "Known from PRB-0003 — near-full ratio throttles client writes. · OSD imbalance eliminated (reweight moved 0.6 points). Runaway tenant eliminated (per-tenant growth flat)."],  // TEST
+        ["done", "rbd snap ls --all: 22TB of snapshots, all created after the retention change, accounting for the entire 8-point rise."],  // CONFIRM
+        ["in-progress", "Snapshot purge scheduled in the approved window pending data-owner sign-off. Capacity alerts reinstated at 70/80%. Retention changes now gated by a capacity review."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Volume provisioning is slow and fails with ENOSPC', evidence: 'cinder-volume log, 40-volume request' },
@@ -607,6 +678,13 @@
         error_signature_raw: '401 Unauthorized token revoked'
       },
       fields: {
+        impactTrend: "stable",
+        cntNodes: "3",
+        cntVms: "0",
+        cntTenants: "1",
+        cntUsers: "4",
+        confirmToggle: "Synchronised the Keystone key repository onto controller-dc1-01 and -02 only.",
+        confirmObserved: "30 of 30 API calls returned 200 after a 45-minute token wait, across all three controllers. No revocation events. Symptom toggled off.",
         ticketNumber: 'DC1S-DC1-0005', state: 'In Progress', severity: '2', escalation: 'L2',
         ticketOwner: 'Alice Verify', supportLevel: 'L2',
         customerId: 'dc1-shared', company: 'analytics-platform / ci-pipeline',
@@ -706,17 +784,31 @@
           e: 'Zero 401s while pinned to the controller that holds the issuing key',
           a: '220 API calls, zero 401s while pinned. Root cause confirmed.', o: 'supports', own: 'Alice Verify — confirmed' }
       ],
+      impacted: {
+        nodes: [
+          ["controller-dc1-01","control / DC1","key repo drift — missing the issuing JWS key"],
+          ["controller-dc1-02","control / DC1","key repo drift — missing the issuing JWS key"],
+          ["controller-dc1-03","control / DC1","healthy — holds the issuing key (IS NOT)"]
+        ],
+        vms: [
+          ["4 CI service accounts, ~220 calls/night","API level","401 Unauthorized ~15 min after token issue"],
+          ["interactive users","API level","healthy — re-authenticate too often to hit it (IS NOT)"]
+        ]
+      },
+      prio: [
+        ["Pin the automation backend to controller-dc1-01 in haproxy","All four DC1 automation pipelines","high",15,"yes",true],
+        ["Diff the Keystone key repositories across the three controllers","The evidence of which controller holds the issuing key","high",10,"yes",false],
+        ["Rotate the Keystone keys cluster-wide","Nothing yet — and it invalidates every live token in DC1","medium",20,"no",false]
+      ],
       plan: [
-        ['done', "P2. 4 pipelines, ~220 calls per night. Keystone logs from all three controllers and haproxy access logs preserved."],
-        ['done', "Escalated L2. Protected nightly delivery; orphaned instances from aborted runs cleaned up each morning."],
-        ['done', "MITIGATION: automation pinned to controller-dc1-01 through the load balancer. Jobs complete, but with no redundancy."],
-        ['done', "Service-account tokens are rejected with 401 roughly 15 minutes after issue, despite a 3600s TTL."],
-        ['done', "IS: service accounts holding a token across calls, ~66% failure. IS NOT: interactive users, application credentials, all of DC2."],
-        ['done', "Distinction: key id 3f2a present only on ctrl1. Change: fernet to JWS migration in the 2026-08-14 window."],
-        ['done', "Known from PRB-0004 — validation against a controller lacking the issuing key."],
-        ['done', "Credential expiry eliminated (fresh credentials fail identically). Short TTL eliminated (3600 on all three; failure timing is LB-driven)."],
-        ['done', "Pinned all automation to ctrl1 and re-ran the pipeline: 220 calls, zero 401s. Failure follows the controller, not the account."],
-        ['not-started', "Key repository sync + rolling restart awaiting security sign-off. Config-drift check for the key repo to be added to the deploy pipeline."]
+        ["done", "P2. 4 pipelines, ~220 calls per night. Keystone logs from all three controllers and haproxy access logs preserved."],  // IMPACT
+        ["done", "Escalated L2. Protected nightly delivery; orphaned instances from aborted runs cleaned up each morning."],  // PRIORITIZE
+        ["done", "MITIGATION: automation pinned to controller-dc1-01 through the load balancer. Jobs complete, but with no redundancy."],  // CONTAIN
+        ["done", "Service-account tokens are rejected with 401 roughly 15 minutes after issue, despite a 3600s TTL. · IS: service accounts holding a token across calls, ~66% failure. IS NOT: interactive users, application credentials, all of DC2."],  // DEFINE
+        ["done", "Distinction: key id 3f2a present only on ctrl1. Change: fernet to JWS migration in the 2026-08-14 window."],  // NARROW
+        ["done", "Known from PRB-0004 — validation against a controller lacking the issuing key. · Credential expiry eliminated (fresh credentials fail identically). Short TTL eliminated (3600 on all three; failure timing is LB-driven)."],  // TEST
+        ["done", "Pinned all automation to ctrl1 and re-ran the pipeline: 220 calls, zero 401s. Failure follows the controller, not the account."],  // CONFIRM
+        ["not-started", "Key repository sync + rolling restart awaiting security sign-off. Config-drift check for the key repo to be added to the deploy pipeline."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Nightly pipeline aborts partway through', evidence: '401 Unauthorized on roughly 66% of API calls' },
@@ -742,6 +834,13 @@
         error_signature_raw: 'DHCPDISCOVER no address available lease allocation failed'
       },
       fields: {
+        impactTrend: "stable",
+        cntNodes: "1",
+        cntVms: "20",
+        cntTenants: "1",
+        cntUsers: "0",
+        confirmToggle: "Set subnet net-app-02 MTU back to 8950 with the fabric left at 9000 — one subnet only.",
+        confirmObserved: "20 of 20 leases acquired in under 5s on a concurrent batch boot, repeated twice at peak. Symptom toggled off.",
         ticketNumber: 'HCC-HCMC-0006', state: 'In Progress', severity: '2', escalation: 'none',
         ticketOwner: 'Dave Debugger', supportLevel: 'L2',
         customerId: 'hcmc-commerce', company: 'storefront / app-tier',
@@ -841,17 +940,30 @@
           e: 'Failure disappears entirely once reply size fits the path MTU',
           a: '20/20 leases in under 5s after the MTU revert. Symptom toggled off.', o: 'supports', own: 'Dave Debugger — confirmed' }
       ],
+      impacted: {
+        nodes: [
+          ["network-hcmc-01","network / HCMC AZ1","dnsmasq on net-app-02 — MTU 9000 vs 8950 mismatch"],
+          ["network-hcmc-02","network / HCMC AZ1","healthy — serves net-app-01 normally (IS NOT)"]
+        ],
+        vms: [
+          ["app-tier-01..20 on net-app-02","network-hcmc-01","~7 of 20 fail DHCPDISCOVER on batch boot"],
+          ["instances on net-app-01","network-hcmc-01","healthy — subnet still at 1500 MTU (IS NOT)"]
+        ]
+      },
+      prio: [
+        ["Set net-app-02 back to MTU 1500 and restart the DHCP agent","The 20-instance scale-out on that subnet","high",20,"yes",true],
+        ["Capture DHCPDISCOVER failures and the fabric MTU on both paths","The evidence that the mismatch is subnet-vs-fabric","high",15,"yes",false],
+        ["Raise the provider bridge and uplink to 9000 now","The right end state — but it is a fabric change under an active incident","medium",60,"no",false]
+      ],
       plan: [
-        ['done', "P2. ~35% of batch boots failing. dnsmasq logs and a tcpdump capture taken before any MTU change."],
-        ['done', "Protected the campaign timeline by keeping single boots working; scaling paused rather than retried blindly."],
-        ['done', "MITIGATION: subnet MTU reverted to 1500 and boots run in batches of 3. Scaling completes; jumbo frames temporarily lost."],
-        ['done', "Instances boot but 30-40% fail to obtain a DHCP lease on subnet net-app-02."],
-        ['done', "IS: net-app-02 during batch boots of 4+. IS NOT: net-app-01 on the same node at the same concurrency, and single boots on net-app-02."],
-        ['done', "Distinction: subnet MTU 8950 vs 1500 — provider bridge is 1500 in both cases. Change: MTU raised on 2026-08-17."],
-        ['done', "Known from KB-2025-0003 — oversized DHCP replies dropped on the path."],
-        ['done', "Agent overload eliminated (same dnsmasq serves net-app-01 cleanly). Pool exhaustion eliminated (200 of 254 addresses free)."],
-        ['done', "Reverted ONLY the subnet MTU and re-ran the 20-instance boot: 20/20 leases in under 5s. Symptom toggled off."],
-        ['not-started', "Permanent fix needs the network team to raise the provider bridge and uplink to 9000, then restore subnet MTU 8950. MTU consistency check to be added to the change template."]
+        ["done", "P2. ~35% of batch boots failing. dnsmasq logs and a tcpdump capture taken before any MTU change."],  // IMPACT
+        ["done", "Protected the campaign timeline by keeping single boots working; scaling paused rather than retried blindly."],  // PRIORITIZE
+        ["done", "MITIGATION: subnet MTU reverted to 1500 and boots run in batches of 3. Scaling completes; jumbo frames temporarily lost."],  // CONTAIN
+        ["done", "Instances boot but 30-40% fail to obtain a DHCP lease on subnet net-app-02. · IS: net-app-02 during batch boots of 4+. IS NOT: net-app-01 on the same node at the same concurrency, and single boots on net-app-02."],  // DEFINE
+        ["done", "Distinction: subnet MTU 8950 vs 1500 — provider bridge is 1500 in both cases. Change: MTU raised on 2026-08-17."],  // NARROW
+        ["done", "Known from KB-2025-0003 — oversized DHCP replies dropped on the path. · Agent overload eliminated (same dnsmasq serves net-app-01 cleanly). Pool exhaustion eliminated (200 of 254 addresses free)."],  // TEST
+        ["done", "Reverted ONLY the subnet MTU and re-ran the 20-instance boot: 20/20 leases in under 5s. Symptom toggled off."],  // CONFIRM
+        ["not-started", "Permanent fix needs the network team to raise the provider bridge and uplink to 9000, then restore subnet MTU 8950. MTU consistency check to be added to the change template."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Instances boot unreachable with no IP address', evidence: '7 of 20 instances have no lease' },
@@ -877,6 +989,13 @@
         error_signature_raw: 'MessagingTimeout: Timed out waiting for a reply to message ID'
       },
       fields: {
+        impactTrend: "growing",
+        cntNodes: "3",
+        cntVms: "20",
+        cntTenants: "9",
+        cntUsers: "0",
+        confirmToggle: "Set cluster_partition_handling=pause_minority, then simulated a 5 second link flap between nodes.",
+        confirmObserved: "Cluster paused the minority half and healed automatically within 12s. All 20 instances built, zero RPC timeouts. Symptom toggled off.",
         ticketNumber: 'HNB-HN-0007', state: 'In Progress', severity: '1', escalation: 'L3',
         ticketOwner: 'Frank Fixer', supportLevel: 'L3',
         customerId: 'hn-bank', company: 'core-banking / capacity-expansion',
@@ -976,17 +1095,32 @@
           e: 'If the network is still flapping, counters keep incrementing',
           a: 'Counters clean since 21:46. Network has recovered; the cluster has not.', o: 'refutes', own: 'Eve Eventloop' }
       ],
+      impacted: {
+        nodes: [
+          ["rabbit@node1","control / HN AZ1","partitioned — minority half still accepting writes"],
+          ["rabbit@node2","control / HN AZ1","partitioned — queues diverging since 21:48"],
+          ["rabbit@node3","control / HN AZ1","majority half — agents flapping"],
+          ["rabbit@hcmc-node1","control / HCMC","healthy — control case (IS NOT)"]
+        ],
+        vms: [
+          ["20 scale-out instances","HN compute","build fails on MessagingTimeout"],
+          ["already-running instances","HN compute","healthy — need no RPC once running (IS NOT)"]
+        ]
+      },
+      prio: [
+        ["Point transport_url at rabbit@node1 only and roll the agents","Every OpenStack service in HN","high",30,"yes",true],
+        ["Capture the partition state and queue divergence on all three nodes","The evidence of which half kept accepting writes","high",15,"yes",false],
+        ["Reset the RabbitMQ cluster and rejoin the nodes","Nothing yet — and it discards the diverged queues unexamined","medium",40,"no",false]
+      ],
       plan: [
-        ['done', "P1. All RPC-heavy operations in HN, ~50% failure. Cluster status, both halves' queue state and switch syslog captured before any reset."],
-        ['done', "Escalated L3. Protected running workloads (data plane unaffected) and paused the compute scale-out."],
-        ['done', "MITIGATION: all services pointed at rabbit@node1. Operations succeed; messaging redundancy temporarily lost."],
-        ['done', "Nova and Neutron report RPC timeouts and agents flap; RabbitMQ logs a network partition that never heals."],
-        ['done', "IS: RPC round trips in HN since 21:48. IS NOT: read-only API calls, running instances, HCMC and DC1 entirely."],
-        ['done', "Distinction: HN saw link flaps, HCMC did not — identical RabbitMQ config on both. Change: switch firmware upgrade at 21:40."],
-        ['done', "Known from KB-2025-0007 — split cluster with partition_handling=ignore never heals."],
-        ['done', "Broker overload eliminated (CPU under 20%, queues shallow). Ongoing network fault eliminated (fabric counters clean since 21:46)."],
-        ['done', "Pointed services at node1 alone: 100% success, agent flapping stopped immediately. Confirms the split rather than a broker fault."],
-        ['not-started', "Cluster reset and rejoin, then pause_minority + net_ticktime 60. Needs Engineering authority and coordination with the in-flight network change."]
+        ["done", "P1. All RPC-heavy operations in HN, ~50% failure. Cluster status, both halves' queue state and switch syslog captured before any reset."],  // IMPACT
+        ["done", "Escalated L3. Protected running workloads (data plane unaffected) and paused the compute scale-out."],  // PRIORITIZE
+        ["done", "MITIGATION: all services pointed at rabbit@node1. Operations succeed; messaging redundancy temporarily lost."],  // CONTAIN
+        ["done", "Nova and Neutron report RPC timeouts and agents flap; RabbitMQ logs a network partition that never heals. · IS: RPC round trips in HN since 21:48. IS NOT: read-only API calls, running instances, HCMC and DC1 entirely."],  // DEFINE
+        ["done", "Distinction: HN saw link flaps, HCMC did not — identical RabbitMQ config on both. Change: switch firmware upgrade at 21:40."],  // NARROW
+        ["done", "Known from KB-2025-0007 — split cluster with partition_handling=ignore never heals. · Broker overload eliminated (CPU under 20%, queues shallow). Ongoing network fault eliminated (fabric counters clean since 21:46)."],  // TEST
+        ["done", "Pointed services at node1 alone: 100% success, agent flapping stopped immediately. Confirms the split rather than a broker fault."],  // CONFIRM
+        ["not-started", "Cluster reset and rejoin, then pause_minority + net_ticktime 60. Needs Engineering authority and coordination with the in-flight network change."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Scale, resize and migration operations fail', evidence: 'MessagingTimeout on roughly 50% of RPC calls' },
@@ -1012,6 +1146,13 @@
         error_signature_raw: 'ping statistics packet loss TCP retransmits elevated'
       },
       fields: {
+        impactTrend: "growing",
+        cntNodes: "2",
+        cntVms: "0",
+        cntTenants: "9",
+        cntUsers: "0",
+        confirmToggle: "Removed the degraded member xe-0/0/2 from LAG po1 on wan-edge-hn-01 — nothing else changed.",
+        confirmObserved: "Loss dropped from 8–10% to 0% immediately and the CRC counter stopped incrementing. Symptom toggled off at reduced bandwidth.",
         ticketNumber: 'MSC-HN-0008', state: 'In Progress', severity: '1', escalation: 'L3',
         ticketOwner: 'Frank Fixer', supportLevel: 'SRE',
         customerId: 'multisite', company: 'dr-platform / cross-site-replication',
@@ -1111,17 +1252,31 @@
           e: 'Loss drops to 0% at reduced bandwidth',
           a: '0% loss immediately, latency back to 12ms baseline, Galera queue drained. Confirmed.', o: 'supports', own: 'Frank Fixer — confirmed' }
       ],
+      impacted: {
+        nodes: [
+          ["wan-edge-hn-01 po1 member xe-0/0/2","WAN edge / HN","degraded — Rx power below threshold, CRC errors climbing"],
+          ["wan-edge-hcmc-01 po1","WAN edge / HCMC","far end — sees the loss, own optics healthy"],
+          ["wan-edge-hn-01 members xe-0/0/0,1,3","WAN edge / HN","healthy — zero CRC errors (IS NOT)"]
+        ],
+        vms: [
+          ["Galera replication + cross-site API","HN ↔ HCMC","~25% of flows hash onto the bad member, 8–10% loss"],
+          ["intra-site HN traffic","HN","healthy — never crosses the LAG (IS NOT)"]
+        ]
+      },
+      prio: [
+        ["Disable LAG member xe-0/0/2 on wan-edge-hn-01","All inter-site traffic, at 3/4 bandwidth","high",10,"yes",true],
+        ["Read Rx power and CRC counters on all four members, both ends","The evidence that one optic, not the path, is degrading","high",15,"yes",false],
+        ["Move replication onto the backup WAN circuit","Replication only — at a cost, and it hides the failing optic","medium",30,"no",false]
+      ],
       plan: [
-        ['done', "P1 Platinum. DR replication lagging, RPO at risk. Optical trend, per-member counters and Galera queue state captured."],
-        ['done', "Escalated SRE + vendor. Protected the RPO commitment by prioritising replication traffic while diagnosing."],
-        ['done', "MITIGATION: degraded LAG member administratively removed. 0% loss at 3/4 bandwidth; replication caught up in 18 minutes."],
-        ['done', "8-10% packet loss and latency spikes on the inter-site WAN link; replication lags and cross-site API calls fail."],
-        ['done', "IS: cross-site HN-HCMC traffic, ~25% of flows. IS NOT: intra-site traffic at both ends, and the HN-DC1 path on the same router."],
-        ['done', "Distinction: Rx power below threshold on one member of po1, nominal on po2. Change: none — 11 days of gradual optical degradation."],
-        ['done', "Known from PRB-0006 — degraded transceiver with LAG still hashing flows onto it."],
-        ['done', "Galera-as-cause eliminated (intra-site replication instant). Carrier/far-end eliminated (other three members clean on the same circuit)."],
-        ['done', "Disabled xe-0/0/2 only: 0% loss immediately, latency back to 12ms baseline, Galera queue drained."],
-        ['done', "Transceiver replaced 11:20, member re-added 11:35, clean for 40 min. Per-member Rx and CRC alerting extended to HN and HCMC — the gap that let 11 days pass unnoticed."]
+        ["done", "P1 Platinum. DR replication lagging, RPO at risk. Optical trend, per-member counters and Galera queue state captured."],  // IMPACT
+        ["done", "Escalated SRE + vendor. Protected the RPO commitment by prioritising replication traffic while diagnosing."],  // PRIORITIZE
+        ["done", "MITIGATION: degraded LAG member administratively removed. 0% loss at 3/4 bandwidth; replication caught up in 18 minutes."],  // CONTAIN
+        ["done", "8-10% packet loss and latency spikes on the inter-site WAN link; replication lags and cross-site API calls fail. · IS: cross-site HN-HCMC traffic, ~25% of flows. IS NOT: intra-site traffic at both ends, and the HN-DC1 path on the same router."],  // DEFINE
+        ["done", "Distinction: Rx power below threshold on one member of po1, nominal on po2. Change: none — 11 days of gradual optical degradation."],  // NARROW
+        ["done", "Known from PRB-0006 — degraded transceiver with LAG still hashing flows onto it. · Galera-as-cause eliminated (intra-site replication instant). Carrier/far-end eliminated (other three members clean on the same circuit)."],  // TEST
+        ["done", "Disabled xe-0/0/2 only: 0% loss immediately, latency back to 12ms baseline, Galera queue drained."],  // CONFIRM
+        ["done", "Transceiver replaced 11:20, member re-added 11:35, clean for 40 min. Per-member Rx and CRC alerting extended to HN and HCMC — the gap that let 11 days pass unnoticed."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'DR replication lags and the RPO is at risk', evidence: 'wsrep_local_recv_queue growing to 4820' },
@@ -1147,6 +1302,13 @@
         error_signature_raw: 'listener stuck in PENDING_UPDATE provisioning_status'
       },
       fields: {
+        impactTrend: "stable",
+        cntNodes: "2",
+        cntVms: "1",
+        cntTenants: "1",
+        cntUsers: "0",
+        confirmToggle: "Not yet — no single-variable test has been run on lb-ingest-dc2.",
+        confirmObserved: "Pending. The listener is still PENDING_UPDATE; nothing has been proven to control the symptom.",
         ticketNumber: 'DC2S-DC2-0009', state: 'In Progress', severity: '2', escalation: 'none',
         ticketOwner: 'Eve Eventloop', supportLevel: 'L2',
         customerId: 'dc2-shared', company: 'batch-platform / ingest-lb',
@@ -1247,17 +1409,31 @@
           e: 'If deployment-wide, the second load balancer also sticks in PENDING_UPDATE',
           a: 'PENDING — this establishes the blast radius and gives the A/B its B side.', o: 'untested', own: 'Dave Debugger' }
       ],
+      impacted: {
+        nodes: [
+          ["amphora-dc2-07","octavia / DC2","listener stuck in PENDING_UPDATE"],
+          ["octavia-worker-dc2-01","octavia / DC2","holds the provisioning lock"],
+          ["amphora-dc2-03","octavia / DC2","healthy — listeners update normally (IS NOT)"]
+        ],
+        vms: [
+          ["lb-ingest-dc2 (amphora 4c11ab…)","amphora-dc2-07","6 of 6 listener operations stuck"],
+          ["existing listeners on lb-ingest-dc2","amphora-dc2-07","healthy — still serving traffic (IS NOT)"]
+        ]
+      },
+      prio: [
+        ["Capture the amphora, worker logs and the provisioning lock state","The only evidence of why the listener is stuck — a rebuild destroys it","high",20,"yes",true],
+        ["Tell the customer the existing listeners keep serving traffic","Trust, and stops a second ticket for the same fault","medium",10,"yes",false],
+        ["Fail the amphora over with openstack loadbalancer failover","Would clear the state fast — and destroys the evidence with it","high",15,"no",false]
+      ],
       plan: [
-        ['done', "P2 Bronze. Configuration changes blocked; existing listeners still serving traffic. Worker, health-manager and amphora logs preserved."],
-        ['done', "Protected the working listeners by NOT failing over the amphora — that would destroy the stuck state."],
-        ['done', "Interim: customer routing through the existing port 443 listener. No platform change made."],
-        ['done', "New Octavia listeners remain in PENDING_UPDATE indefinitely and never transition to ACTIVE."],
-        ['in-progress', "IS: every listener create/update on lb-ingest-dc2, 6 of 6. IS NOT: not yet established — no control case captured."],
-        ['in-progress', "Blast radius unknown. Next: same operation on a second DC2 load balancer and on a DC1 one, to scope per-LB vs per-amphora vs deployment-wide."],
-        ['not-started', "Leading theory: worker taskflow blocked on a stale lock or unreleased claim. Needs the debug capture first."],
-        ['not-started', "Amphora reachability already eliminated (health checks pass, existing traffic served)."],
-        ['not-started', "Cannot verify until a cause is identified. Any test must be single-variable on lb-ingest-dc2 only."],
-        ['not-started', "Strong KB candidate: no article and no Problem record exists for this signature; the one prior sighting self-resolved undiagnosed."]
+        ["done", "P2 Bronze. Configuration changes blocked; existing listeners still serving traffic. Worker, health-manager and amphora logs preserved."],  // IMPACT
+        ["done", "Protected the working listeners by NOT failing over the amphora — that would destroy the stuck state."],  // PRIORITIZE
+        ["done", "Interim: customer routing through the existing port 443 listener. No platform change made."],  // CONTAIN
+        ["in-progress", "New Octavia listeners remain in PENDING_UPDATE indefinitely and never transition to ACTIVE. · IS: every listener create/update on lb-ingest-dc2, 6 of 6. IS NOT: not yet established — no control case captured."],  // DEFINE
+        ["in-progress", "Blast radius unknown. Next: same operation on a second DC2 load balancer and on a DC1 one, to scope per-LB vs per-amphora vs deployment-wide."],  // NARROW
+        ["not-started", "Leading theory: worker taskflow blocked on a stale lock or unreleased claim. Needs the debug capture first. · Amphora reachability already eliminated (health checks pass, existing traffic served)."],  // TEST
+        ["not-started", "Cannot verify until a cause is identified. Any test must be single-variable on lb-ingest-dc2 only."],  // CONFIRM
+        ["not-started", "Strong KB candidate: no article and no Problem record exists for this signature; the one prior sighting self-resolved undiagnosed."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Customer cannot add the HTTPS listener and the release is blocked', evidence: '6 of 6 attempts stuck in PENDING_UPDATE' },
@@ -1283,6 +1459,13 @@
         error_signature_raw: 'Internal Server Error /auth/websso/'
       },
       fields: {
+        impactTrend: "growing",
+        cntNodes: "2",
+        cntVms: "0",
+        cntTenants: "1",
+        cntUsers: "14",
+        confirmToggle: "Added the renamed IdP group to the Keystone mapping rule, then logged in as three new users.",
+        confirmObserved: "All six logins succeeded (3 new, 3 pre-existing). No 500s in the Horizon or Keystone logs. Symptom toggled off.",
         ticketNumber: 'HCC-HCMC-0010', state: 'In Progress', severity: '2', escalation: 'none',
         ticketOwner: 'Judy Java', supportLevel: 'L2',
         customerId: 'hcmc-commerce', company: 'storefront / platform-access',
@@ -1382,17 +1565,31 @@
           e: 'The new user logs in successfully once the mapping matches',
           a: 'Login succeeded immediately on staging. Root cause confirmed.', o: 'supports', own: 'Judy Java — confirmed' }
       ],
+      impacted: {
+        nodes: [
+          ["horizon-hcmc-01","web / HCMC","500 on /auth/websso/ for users created after the rename"],
+          ["keystone-hcmc-01","identity / HCMC","mapping rule does not match the renamed IdP group"],
+          ["horizon-hcmc-01 (pre-existing users)","web / HCMC","healthy — legacy group claim still matches (IS NOT)"]
+        ],
+        vms: [
+          ["14 users created after 2026-08-18 17:00","Horizon SSO","Internal Server Error at the IdP redirect"],
+          ["users created before the rename","Horizon SSO","healthy — log in normally (IS NOT)"]
+        ]
+      },
+      prio: [
+        ["Grant the 14 new users a direct project role, tracked for removal","The 14 users locked out of Horizon","high",20,"yes",true],
+        ["Diff the IdP group claim against the Keystone mapping rule","The evidence that the rename, not Horizon, broke the login","high",10,"yes",false],
+        ["Disable federated login and move everyone to local accounts","Logins — by removing SSO for every user, including the working ones","low",60,"no",false]
+      ],
       plan: [
-        ['done', "P3. 14 new engineers blocked; existing users unaffected. SAML assertion dumped and Horizon/Keystone logs preserved."],
-        ['done', "Protected onboarding by unblocking users individually rather than changing federation mapping under pressure."],
-        ['done', "MITIGATION: temporary direct role assignments for the 14 users. Outside normal SSO governance, so explicitly temporary."],
-        ['done', "Horizon returns HTTP 500 immediately after the SAML redirect, but only for users created in the last 24 hours."],
-        ['done', "IS: users created after 2026-08-18 17:00. IS NOT: users created before it, application credentials, local accounts."],
-        ['done', "Distinction: group claim \"platform-cloud-users\" vs legacy \"cloud-users\". Change: customer IdP group rename on 2026-08-18, unannounced."],
-        ['done', "Known from KB-2025-0008 — mapping resolution finds no matching rule and raises an unhandled error."],
-        ['done', "Web-tier health eliminated (same node serves existing users). Missing-role eliminated — a direct grant works, which proves mapping is the failing stage."],
-        ['done', "Added the renamed group to the mapping on staging and retried one new-user login: succeeded immediately."],
-        ['in-progress', "Mapping update pending change approval, keeping the legacy group during transition. Synthetic SSO check and a change-notification agreement with the customer IdP team to follow."]
+        ["done", "P3. 14 new engineers blocked; existing users unaffected. SAML assertion dumped and Horizon/Keystone logs preserved."],  // IMPACT
+        ["done", "Protected onboarding by unblocking users individually rather than changing federation mapping under pressure."],  // PRIORITIZE
+        ["done", "MITIGATION: temporary direct role assignments for the 14 users. Outside normal SSO governance, so explicitly temporary."],  // CONTAIN
+        ["done", "Horizon returns HTTP 500 immediately after the SAML redirect, but only for users created in the last 24 hours. · IS: users created after 2026-08-18 17:00. IS NOT: users created before it, application credentials, local accounts."],  // DEFINE
+        ["done", "Distinction: group claim \"platform-cloud-users\" vs legacy \"cloud-users\". Change: customer IdP group rename on 2026-08-18, unannounced."],  // NARROW
+        ["done", "Known from KB-2025-0008 — mapping resolution finds no matching rule and raises an unhandled error. · Web-tier health eliminated (same node serves existing users). Missing-role eliminated — a direct grant works, which proves mapping is the failing stage."],  // TEST
+        ["done", "Added the renamed group to the mapping on staging and retried one new-user login: succeeded immediately."],  // CONFIRM
+        ["in-progress", "Mapping update pending change approval, keeping the legacy group during transition. Synthetic SSO check and a change-notification agreement with the customer IdP team to follow."]   // FIX & LEARN
       ],
       causalChain: [
         { why: '14 newly onboarded engineers cannot access the dashboard', evidence: 'HTTP 500 at /auth/websso/ for every attempt' },

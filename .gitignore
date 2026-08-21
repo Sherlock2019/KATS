@@ -24,7 +24,8 @@ tickettemplate_updated_v6 - Copy.html
 kt_support_v7.html
 
 # ---------------------------------------------------------------------------
-# Re-downloadable by `node build_demo.js` — no need to version ~550KB of CDN
+# Re-downloadable by `node build_demo.js` — no need to version ~4MB of CDN
+# (bootstrap, font-awesome, and since v9 mermaid, which is 3.3MB on its own)
 # ---------------------------------------------------------------------------
 vendor/
 

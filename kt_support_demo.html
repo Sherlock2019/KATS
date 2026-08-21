@@ -1839,7 +1839,7 @@
 
   const TASKS = {
     triage: 'Triage — is this known, a duplicate, a recurrence, or working as designed?',
-    action_plan: 'Lay out the Kepner-Tregoe sequence, skipping what is already known',
+    action_plan: 'Plan the 7-stage pipeline, skipping the stages already answered',
     probable_causes: 'Rank 3 probable causes with evidence and a single-variable test each',
     critique_plan: 'Review the engineer\'s plan and suggest changes',
     root_cause: 'Propose a root cause + category from the evidence',
@@ -2137,17 +2137,17 @@
    * to verification. That is the minimum-action objective made concrete.
    * ================================================================== */
   /* ---------------------------------------------------------------------
-   * UNIVERSAL TROUBLESHOOTING ACTION PLAN — 10 steps
+   * UNIVERSAL TROUBLESHOOTING PIPELINE — 7 stages
    *
-   *   Protect → Prioritize → Mitigate → Define → Isolate →
-   *   Hypothesize → Eliminate → Verify → Correct → Prevent
+   *   IMPACT → CONTAIN → DEFINE → NARROW → TEST → CONFIRM → FIX & LEARN
    *
-   * Domain-neutral: works for IT, cloud, AI, infrastructure, manufacturing,
-   * operations and business processes. Two funnels run in parallel —
-   * operational (max impact → min impact) and diagnostic (max uncertainty →
-   * min uncertainty).
+   * The stage DEFINITIONS live in kt_pipeline.js — structure is not the
+   * agent's job. What lives here is the contextual `detail` for each stage:
+   * the same seven questions, rewritten around this ticket, this customer and
+   * whatever the KB already knows.
    *
-   * Exposed globally so the UI and the agent share one definition.
+   * KT_STEPS is kept only as the legacy 10-step reference used to migrate old
+   * saved tickets; nothing renders from it any more.
    * ------------------------------------------------------------------- */
   const KT_STEPS = [
     { n: 1, phase: 'PROTECT', title: 'Assess impact and protect evidence',
@@ -2191,7 +2191,8 @@
       why: 'Implement the permanent corrective action, verify normal operation is restored, identify systemic contributing causes, and capture the learning.',
       where: '§10.7', mins: 45 }
   ];
-  global.UNIVERSAL_PLAN = KT_STEPS;
+  global.LEGACY_KT_STEPS = KT_STEPS;
+  const STAGES = () => (global.Pipeline ? global.Pipeline.STAGES : []);
 
   function doActionPlan(ctx) {
     const t = doTriage(ctx);
@@ -2214,77 +2215,109 @@
     const wad = t.verdict === 'works_as_designed';
 
     const detail = {
-      1: 'Record severity, blast radius and who is affected. ' +
-         (ctx.site ? 'Impact is visible at ' + ctx.site + '. ' : '') +
-         'Snapshot logs, configs, versions and counters BEFORE any change — mitigation destroys evidence.',
-      2: 'Severity is S' + (ctx.priority || '?') + (ctx.blast_radius ? ', blast radius ' + ctx.blast_radius : '') + '. Decide what must be protected or restored first: ' +
-         'customer service, data integrity, or the remaining healthy capacity.',
-      3: known
+      /* Evidence capture is stated HERE and nowhere else. It is an output of
+         IMPACT, not a caveat inside CONTAIN — by the time someone is
+         mitigating, the state they needed is usually already gone. */
+      impact: 'Severity S' + (ctx.priority || '?') +
+        (ctx.blast_radius ? ', blast radius ' + ctx.blast_radius : '') + '. ' +
+        (ctx.site ? 'Impact is visible at ' + ctx.site + '. ' : '') +
+        'Record who is affected and decide what to protect first. Then snapshot logs, ' +
+        'configs, versions and counters BEFORE any change — mitigation destroys evidence.',
+
+      contain: known
         ? 'A proven mitigation exists in ' + src + ': ' +
           ((problem && problem.workaround) || (kb && kb.workaround) || 'see the article') +
-          '. Apply it, and record it as MITIGATION — not as the fix.'
-        : 'Find the smallest safe action that reduces impact without hiding the cause. Avoid a blanket restart if it erases the failing state.',
-      4: ctx.deviation
-        ? 'Stated: "' + String(ctx.deviation).slice(0, 110) + '". Confirm it names an object and a defect, and contains no theory.'
-        : 'One sentence: what should be happening, and what is happening instead.',
-      5: 'Bound it on WHAT / WHERE / WHEN / EXTENT. ' +
-         (ctx.site ? 'You have ' + ctx.site + ' affected — now name a comparable site, node or tenant that is NOT.'
-                   : 'Name the comparable cases that are healthy.') +
-         ' The IS NOT population is the more informative half.',
-      6: known
-        ? 'ALREADY ISOLATED by ' + src + ': ' +
+          '. Apply it and record it as MITIGATION — not as the fix.'
+        : 'Find the smallest safe REVERSIBLE action that reduces impact without hiding the cause. ' +
+          'Failover · rollback · disable · bypass · route around · scale · isolate · rate-limit. ' +
+          'Avoid a blanket restart if it erases the failing state.',
+
+      define: (ctx.deviation
+        ? 'Stated: "' + String(ctx.deviation).slice(0, 110) + '". Confirm it names an object and a defect, and contains no theory. '
+        : 'One sentence: what should be happening, and what is happening instead. ') +
+        'Then bound it on WHAT / WHERE / WHEN / EXTENT — ' +
+        (ctx.site ? 'you have ' + ctx.site + ' affected, so name a comparable site, node or tenant that is NOT.'
+                  : 'name the comparable cases that are healthy.') +
+        ' The IS NOT population is the more informative half.',
+
+      narrow: known
+        ? 'ALREADY NARROWED by ' + src + ': ' +
           ((kb && kb.distinctions && kb.distinctions[0])
             ? kb.distinctions[0].dimension + ' — IS ' + kb.distinctions[0].is + ' / IS NOT ' + kb.distinctions[0].is_not
             : 'see the documented distinction') +
           '. Confirm the same distinction holds here rather than re-deriving it.'
-        : 'Divide the search space: all customers? all sites? all nodes? all versions? Keep splitting until few mechanisms remain, then ask what changed around that difference.',
-      7: known
+        : 'Two questions only. WHAT IS DIFFERENT between the failing and the working case? ' +
+          'Then WHAT CHANGED around that difference? Keep splitting — all customers? all sites? ' +
+          'all nodes? all versions? — until few mechanisms remain.',
+
+      test: known
         ? 'ALREADY KNOWN: ' + ((problem && problem.root_cause_statement) || (kb && kb.root_cause) || '').slice(0, 150) +
-          '. Do not regenerate hypotheses.'
-        : 'What mechanisms could produce exactly this pattern? Derive them from the distinctions and changes, not from memory.',
-      8: known
-        ? 'Already tested against the specification when ' + src + ' was raised.'
-        : 'For each candidate ask: does it explain the IS AND the IS NOT, the WHEN and the EXTENT? Eliminate any that contradict a known fact; rank the survivors by assumptions needed.',
-      9: known
+          '. Do not regenerate candidates and do not re-run the elimination — it was done when ' + src + ' was raised.'
+        : 'First derive candidates from the distinctions and changes, not from memory. ' +
+          'Then pick ONE test: does each candidate explain the IS AND the IS NOT, the WHEN and the EXTENT? ' +
+          'Choose the test with the best chance of ending this per minute spent, and prefer a reversible one.',
+
+      confirm: known
         ? 'Apply the documented fix to ONE target and confirm the symptom toggles off: ' +
           ((kb && kb.verification && kb.verification.test) || 're-run the reproduction')
-        : 'Make the problem appear or disappear on demand. Change ONE factor, reversibly, on ONE target.',
-      10: known
+        : 'Make the problem appear or disappear on demand. Change ONE factor, reversibly, on ONE target. ' +
+          'The cause must explain the IS and the IS NOT — correlation is not enough to pass this gate.',
+
+      fix: known
         ? 'Apply the permanent fix from ' + src + ', re-run the reproduction, then link this case to the Problem so recurrence is counted and the systemic cause stays visible.'
-        : 'Apply the minimal safe correction, confirm normal operation, identify why this was possible at all, add monitoring or a guardrail, and publish the KB article.'
+        : 'Apply the minimal safe correction, confirm normal operation, identify why this was possible at all, add monitoring or a guardrail, publish the KB article, and set a watch window for recurrence.'
     };
 
-    r.plan_steps = KT_STEPS.map(s => {
-      let status = 'not-started', shortcut = '', mins = s.mins;
-      if (wad && s.n >= 5 && s.n <= 9) { status = 'n/a'; shortcut = 'not a fault'; mins = 0; }
-      else if (known && s.n >= 6 && s.n <= 8) { status = 'done'; shortcut = 'known from ' + src; mins = 0; }
-      else if (ctx.deviation && s.n === 4) { status = 'done'; mins = 0; }
+    /* What the pipeline SKIPS is the whole value. A known cause means NARROW
+       and TEST are already answered; works-as-designed means there is no
+       fault to narrow, test or confirm at all. */
+    const NA_WHEN_WAD = ['narrow', 'test', 'confirm'];
+    const DONE_WHEN_KNOWN = ['narrow', 'test'];
+
+    r.plan_steps = STAGES().map(s => {
+      let status = 'not-started', shortcut = '', mins = s.est_mins;
+
+      const skip = global.Pipeline.skipReason(s, {
+        severity: ctx.priority, blast_radius: ctx.blast_radius,
+        impact_growing: ctx.impact_growing, verdict: t.verdict
+      });
+
+      if (wad && NA_WHEN_WAD.indexOf(s.key) >= 0) { status = 'n/a'; shortcut = 'not a fault'; mins = 0; }
+      else if (skip) { status = 'n/a'; shortcut = skip; mins = 0; }
+      else if (known && DONE_WHEN_KNOWN.indexOf(s.key) >= 0) { status = 'done'; shortcut = 'known from ' + src; mins = 0; }
+
       return {
-        n: s.n, title: s.title, where: s.where, status, shortcut,
-        todo: wad && s.n === 10
+        key: s.key, n: s.n, icon: s.icon, phase: s.label, title: s.title,
+        where: s.where, question: s.question, output: s.output, why: s.why,
+        status, shortcut,
+        todo: wad && s.key === 'fix'
           ? 'No fix required. Send the customer the documented behaviour and the correct validation method, set root cause = works-as-designed, and close.'
-          : detail[s.n],
-        why: s.why, phase: s.phase, question: s.question, est_mins: mins, owner: '', notes: ''
+          : detail[s.key],
+        est_mins: mins, owner: '', notes: ''
       };
     });
 
     const remaining = r.plan_steps.filter(s => s.status === 'not-started');
-    r.actions = remaining.map((s, i) => ({
-      seq: i + 1, action: s.title, why: s.why, expected: s.todo,
-      risk: s.n === 9 ? 'Low — single target, reversible' : 'None',
-      est_mins: s.est_mins, source: src || 'KT method'
-    }));
+
+    /* The step cards below already carry title, why and expected. Repeating
+       all of that here produced two renderings of the same ten items on one
+       screen — the panel now states only what the agent DECIDED, and the
+       cards remain the single place the work is described. */
+    r.actions = [];
 
     const skipped = r.plan_steps.length - remaining.length;
+    const total = r.plan_steps.length;
     r.headline = wad
-      ? 'Works as designed — ' + skipped + ' of 10 KT steps do not apply. Confirm, explain, close.'
+      ? 'Works as designed — NARROW, TEST and CONFIRM do not apply. Confirm, explain, close.'
       : known
-        ? 'Known cause from ' + src + ' — ' + skipped + ' of 10 KT steps are already answered. Go straight to verification.'
-        : 'No prior knowledge — run the full 10-step KT sequence. ' + remaining.length + ' steps to work.';
+        ? 'Known cause from ' + src + ' — NARROW and TEST are already answered. Go straight to CONFIRM.'
+        : 'No prior knowledge — run the full pipeline. ' + remaining.length + ' of ' + total + ' stages to work.';
     r.reasoning = t.reasoning.concat([
-      'Steps 6-8 (isolate → hypothesize → eliminate) are the expensive middle of any investigation.',
-      known ? 'They are skipped here because ' + src + ' already carries a validated cause — that is where the time saving comes from.'
-            : 'They cannot be skipped here: nothing in the KB or the customer history matches this signature.'
+      'NARROW → TEST is the expensive middle of any investigation, and it is a loop, not two steps: ' +
+      'every refuted candidate sends you back to NARROW.',
+      known ? 'The loop is skipped entirely here because ' + src + ' already carries a validated cause and a documented distinction — that is where the time saving comes from.'
+            : 'The loop cannot be skipped here: nothing in the KB or the customer history matches this signature.',
+      skipped ? skipped + ' of ' + total + ' stages need no work on this ticket.' : 'Every stage needs work on this ticket.'
     ]);
     return finish(r);
   }
@@ -2893,22 +2926,19 @@
           { author: 'Grace Git', at: '2026-08-17 10:12 GMT+7',
             text: 'compute-hn-09 was added after a second sweep — it had the same 08:55 agent restart. compute-hn-01 is listed deliberately as the healthy control for the A/B.' }
         ],
-        '10.3 Probable Causes & Test Plan': [
+        '10.5 TEST — Probable Causes & Next Test': [
           { author: 'Bob Builder', at: '2026-08-17 10:40 GMT+7',
             text: 'Tested cause #2 first because it was reversible and cheap. Symptom toggled off within 20s, so we did not need to run #1 or #3.' }
         ]
       },
       plan: [
-        ['done', "P1. 12 Windows builds blocked across compute-hn-04 and hn-09. Console output, nova-api-metadata and ovn-metadata-agent logs captured BEFORE any restart."],
-        ['done', "Escalated L2, duty manager notified. Protected remaining capacity by pinning new builds away from the two affected nodes."],
-        ['done', "MITIGATION (not a fix): builds redirected to HCMC and launched with --config-drive true. 12/12 VMs delivered on the workaround."],
-        ['done', "Windows VM creation fails in HN; cloudbase-init hangs and metadata logs \"No port found\" for 169.254.169.254."],
-        ['done', "IS: Windows builds on hn-04/hn-09. IS NOT: Linux on the same nodes, Windows on hn-01/02/03, all of HCMC. WHEN: from 09:12, 17 min after the 08:55 patch run."],
-        ['done', "Distinction: ovnmeta namespace absent on hn-04/09, present on hn-01. Change: ovn-metadata-agent restarted at 08:55."],
-        ['done', "Not regenerated — signature matched PRB-0001, which already carries a validated mechanism."],
-        ['done', "Image eliminated (v3 and v4 both fail on hn-04, both succeed on hn-01). Network-wide eliminated (port bound on hn-01/02/03)."],
-        ['done', "Restarted the agent on hn-04 ONLY. Namespace restored in 20s; vm-cb-win-08 built with config-drive disabled. Symptom toggled off."],
-        ['in-progress', "Reconciliation hook rolling out to all HN compute nodes. force_config_drive=True for Windows images pending CHG. Alert on missing ovnmeta namespace deployed."]
+        ["done", "P1. 12 Windows builds blocked across compute-hn-04 and hn-09. Console output, nova-api-metadata and ovn-metadata-agent logs captured BEFORE any restart. · Escalated L2, duty manager notified. Protected remaining capacity by pinning new builds away from the two affected nodes."],  // IMPACT
+        ["done", "MITIGATION (not a fix): builds redirected to HCMC and launched with --config-drive true. 12/12 VMs delivered on the workaround."],  // CONTAIN
+        ["done", "Windows VM creation fails in HN; cloudbase-init hangs and metadata logs \"No port found\" for 169.254.169.254. · IS: Windows builds on hn-04/hn-09. IS NOT: Linux on the same nodes, Windows on hn-01/02/03, all of HCMC. WHEN: from 09:12, 17 min after the 08:55 patch run."],  // DEFINE
+        ["done", "Distinction: ovnmeta namespace absent on hn-04/09, present on hn-01. Change: ovn-metadata-agent restarted at 08:55."],  // NARROW
+        ["done", "Not regenerated — signature matched PRB-0001, which already carries a validated mechanism. · Image eliminated (v3 and v4 both fail on hn-04, both succeed on hn-01). Network-wide eliminated (port bound on hn-01/02/03)."],  // TEST
+        ["done", "Restarted the agent on hn-04 ONLY. Namespace restored in 20s; vm-cb-win-08 built with config-drive disabled. Symptom toggled off."],  // CONFIRM
+        ["in-progress", "Reconciliation hook rolling out to all HN compute nodes. force_config_drive=True for Windows images pending CHG. Alert on missing ovnmeta namespace deployed."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Windows guests boot unconfigured — no hostname, no injected key', evidence: 'Guest console: cloudbase-init retry 12/30' },
@@ -3035,16 +3065,13 @@
           a: 'Elections reduced but loss persisted — timer alone is insufficient', o: 'inconclusive', own: 'Ivan Integer — contributing, not causal' }
       ],
       plan: [
-        ['done', "P1. 340 instances across 9 tenants seeing 30-90s gaps. northd CPU, Raft term changes and Grafana window exported before touching config."],
-        ['done', "Escalated L3. Protected the data plane by halting the PCI push at rule 2,100 of 4,000."],
-        ['done', "MITIGATION: rule push throttled to batches of 50 with a 2s pause. Impact stopped within 6 minutes."],
-        ['done', "Tenant networks lose connectivity for 30-90s and port binding times out at 300s during bulk security-group writes."],
-        ['done', "IS: HN during push bursts. IS NOT: HCMC running the identical script, and HN between bursts. EXTENT scales with push rate."],
-        ['done', "Distinction: HN carries 12,000 ACLs against HCMC 2,000. Change: PCI-DSS rollout script started 14:15."],
-        ['done', "Known from PRB-0002 — full logical-flow recompute per rule write."],
-        ['done', "Fabric congestion eliminated (counters clean, loss stops when script pauses). Raft-as-cause eliminated (timer alone insufficient)."],
-        ['done', "Enabled use_logical_dp_groups on HN only, re-ran one 50-rule batch: northd peaked 41%, zero elections, zero loss."],
-        ['in-progress', "dp-groups + Raft timer applied. Remaining 1,900 rules queued. northd CPU alert at 70%/5min deployed; runbook RB-208 updated."]
+        ["done", "P1. 340 instances across 9 tenants seeing 30-90s gaps. northd CPU, Raft term changes and Grafana window exported before touching config. · Escalated L3. Protected the data plane by halting the PCI push at rule 2,100 of 4,000."],  // IMPACT
+        ["done", "MITIGATION: rule push throttled to batches of 50 with a 2s pause. Impact stopped within 6 minutes."],  // CONTAIN
+        ["done", "Tenant networks lose connectivity for 30-90s and port binding times out at 300s during bulk security-group writes. · IS: HN during push bursts. IS NOT: HCMC running the identical script, and HN between bursts. EXTENT scales with push rate."],  // DEFINE
+        ["done", "Distinction: HN carries 12,000 ACLs against HCMC 2,000. Change: PCI-DSS rollout script started 14:15."],  // NARROW
+        ["done", "Known from PRB-0002 — full logical-flow recompute per rule write. · Fabric congestion eliminated (counters clean, loss stops when script pauses). Raft-as-cause eliminated (timer alone insufficient)."],  // TEST
+        ["done", "Enabled use_logical_dp_groups on HN only, re-ran one 50-rule batch: northd peaked 41%, zero elections, zero loss."],  // CONFIRM
+        ["in-progress", "dp-groups + Raft timer applied. Remaining 1,900 rules queued. northd CPU alert at 70%/5min deployed; runbook RB-208 updated."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Tenants lose connectivity for 30-90 seconds', evidence: 'Inter-instance ping loss during push bursts' },
@@ -3168,16 +3195,13 @@
           a: 'T+4s blocked, T+60s succeeded. No defect. Confirmed works-as-designed.', o: 'supports', own: 'Charlie Checker — closed WAD' }
       ],
       plan: [
-        ['done', "P3. No service impact. Customer pipeline held. Captured the exact command sequence and timestamps."],
-        ['done', "Nothing to restore — existing traffic unaffected. Confirmed no rules were lost."],
-        ['n/a', "No mitigation needed; there is no fault to mitigate."],
-        ['done', "Customer reports a new security-group rule \"does not work\" when tested immediately after the API returns 201."],
-        ['done', "IS: validation within ~10s of the API call. IS NOT: the same rule validated after 60s, which always succeeds."],
-        ['done', "The only distinction is elapsed time between API 200 and the connectivity test. Nothing changed on the platform."],
-        ['n/a', "No causal mechanism to generate — the behaviour is inside the documented envelope."],
-        ['n/a', "Wrong-rule and flow-install-failure both eliminated at step 6."],
-        ['done', "Ran the identical test at T+4s (blocked) and T+60s (succeeds). ovn-controller installed the flow at T+38s."],
-        ['done', "Closed works-as-designed. Customer sent the behaviour reference and a polling snippet. 4th occurrence — documentation request raised on PRB-0005."]
+        ["done", "P3. No service impact. Customer pipeline held. Captured the exact command sequence and timestamps. · Nothing to restore — existing traffic unaffected. Confirmed no rules were lost."],  // IMPACT
+        ["n/a", "No mitigation needed; there is no fault to mitigate."],  // CONTAIN
+        ["done", "Customer reports a new security-group rule \"does not work\" when tested immediately after the API returns 201. · IS: validation within ~10s of the API call. IS NOT: the same rule validated after 60s, which always succeeds."],  // DEFINE
+        ["done", "The only distinction is elapsed time between API 200 and the connectivity test. Nothing changed on the platform."],  // NARROW
+        ["n/a", "No causal mechanism to generate — the behaviour is inside the documented envelope. · Wrong-rule and flow-install-failure both eliminated at step 6."],  // TEST
+        ["done", "Ran the identical test at T+4s (blocked) and T+60s (succeeds). ovn-controller installed the flow at T+38s."],  // CONFIRM
+        ["done", "Closed works-as-designed. Customer sent the behaviour reference and a polling snippet. 4th occurrence — documentation request raised on PRB-0005."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Customer reports the firewall rule does not work', evidence: 'curl timed out at T+4s' },
@@ -3303,16 +3327,13 @@
           a: '22TB of snapshots, all created after 2026-08-10, accounting for the entire 8-point rise.', o: 'supports', own: 'Heidi Hash — confirmed' }
       ],
       plan: [
-        ['done', "P1. 6 tenants, ~900 volumes on the affected pool. ceph df, pool history and per-tenant growth exported before any reweight."],
-        ['done', "Escalated L2. Protected the analytics delivery by keeping existing volumes untouched and stopping further SSD growth."],
-        ['done', "MITIGATION: new volume requests routed to the HDD pool at 54%. Analytics cluster unblocked; SSD pool stopped growing."],
-        ['done', "Volume creation on ceph-pool-ssd-01 is slow or fails with ENOSPC; Ceph reports POOL_NEAR_FULL at 91.4%."],
-        ['done', "IS: ceph-pool-ssd-01 at 91%. IS NOT: ceph-pool-hdd-01 at 54% on the same OSD hosts, and all DC2 pools."],
-        ['done', "Distinction: utilisation alone — same cluster, version and driver. Change: backup retention extended 14 to 30 days on 2026-08-10."],
-        ['done', "Known from PRB-0003 — near-full ratio throttles client writes."],
-        ['done', "OSD imbalance eliminated (reweight moved 0.6 points). Runaway tenant eliminated (per-tenant growth flat)."],
-        ['done', "rbd snap ls --all: 22TB of snapshots, all created after the retention change, accounting for the entire 8-point rise."],
-        ['in-progress', "Snapshot purge scheduled in the approved window pending data-owner sign-off. Capacity alerts reinstated at 70/80%. Retention changes now gated by a capacity review."]
+        ["done", "P1. 6 tenants, ~900 volumes on the affected pool. ceph df, pool history and per-tenant growth exported before any reweight. · Escalated L2. Protected the analytics delivery by keeping existing volumes untouched and stopping further SSD growth."],  // IMPACT
+        ["done", "MITIGATION: new volume requests routed to the HDD pool at 54%. Analytics cluster unblocked; SSD pool stopped growing."],  // CONTAIN
+        ["done", "Volume creation on ceph-pool-ssd-01 is slow or fails with ENOSPC; Ceph reports POOL_NEAR_FULL at 91.4%. · IS: ceph-pool-ssd-01 at 91%. IS NOT: ceph-pool-hdd-01 at 54% on the same OSD hosts, and all DC2 pools."],  // DEFINE
+        ["done", "Distinction: utilisation alone — same cluster, version and driver. Change: backup retention extended 14 to 30 days on 2026-08-10."],  // NARROW
+        ["done", "Known from PRB-0003 — near-full ratio throttles client writes. · OSD imbalance eliminated (reweight moved 0.6 points). Runaway tenant eliminated (per-tenant growth flat)."],  // TEST
+        ["done", "rbd snap ls --all: 22TB of snapshots, all created after the retention change, accounting for the entire 8-point rise."],  // CONFIRM
+        ["in-progress", "Snapshot purge scheduled in the approved window pending data-owner sign-off. Capacity alerts reinstated at 70/80%. Retention changes now gated by a capacity review."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Volume provisioning is slow and fails with ENOSPC', evidence: 'cinder-volume log, 40-volume request' },
@@ -3438,16 +3459,13 @@
           a: '220 API calls, zero 401s while pinned. Root cause confirmed.', o: 'supports', own: 'Alice Verify — confirmed' }
       ],
       plan: [
-        ['done', "P2. 4 pipelines, ~220 calls per night. Keystone logs from all three controllers and haproxy access logs preserved."],
-        ['done', "Escalated L2. Protected nightly delivery; orphaned instances from aborted runs cleaned up each morning."],
-        ['done', "MITIGATION: automation pinned to controller-dc1-01 through the load balancer. Jobs complete, but with no redundancy."],
-        ['done', "Service-account tokens are rejected with 401 roughly 15 minutes after issue, despite a 3600s TTL."],
-        ['done', "IS: service accounts holding a token across calls, ~66% failure. IS NOT: interactive users, application credentials, all of DC2."],
-        ['done', "Distinction: key id 3f2a present only on ctrl1. Change: fernet to JWS migration in the 2026-08-14 window."],
-        ['done', "Known from PRB-0004 — validation against a controller lacking the issuing key."],
-        ['done', "Credential expiry eliminated (fresh credentials fail identically). Short TTL eliminated (3600 on all three; failure timing is LB-driven)."],
-        ['done', "Pinned all automation to ctrl1 and re-ran the pipeline: 220 calls, zero 401s. Failure follows the controller, not the account."],
-        ['not-started', "Key repository sync + rolling restart awaiting security sign-off. Config-drift check for the key repo to be added to the deploy pipeline."]
+        ["done", "P2. 4 pipelines, ~220 calls per night. Keystone logs from all three controllers and haproxy access logs preserved. · Escalated L2. Protected nightly delivery; orphaned instances from aborted runs cleaned up each morning."],  // IMPACT
+        ["done", "MITIGATION: automation pinned to controller-dc1-01 through the load balancer. Jobs complete, but with no redundancy."],  // CONTAIN
+        ["done", "Service-account tokens are rejected with 401 roughly 15 minutes after issue, despite a 3600s TTL. · IS: service accounts holding a token across calls, ~66% failure. IS NOT: interactive users, application credentials, all of DC2."],  // DEFINE
+        ["done", "Distinction: key id 3f2a present only on ctrl1. Change: fernet to JWS migration in the 2026-08-14 window."],  // NARROW
+        ["done", "Known from PRB-0004 — validation against a controller lacking the issuing key. · Credential expiry eliminated (fresh credentials fail identically). Short TTL eliminated (3600 on all three; failure timing is LB-driven)."],  // TEST
+        ["done", "Pinned all automation to ctrl1 and re-ran the pipeline: 220 calls, zero 401s. Failure follows the controller, not the account."],  // CONFIRM
+        ["not-started", "Key repository sync + rolling restart awaiting security sign-off. Config-drift check for the key repo to be added to the deploy pipeline."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Nightly pipeline aborts partway through', evidence: '401 Unauthorized on roughly 66% of API calls' },
@@ -3573,16 +3591,13 @@
           a: '20/20 leases in under 5s after the MTU revert. Symptom toggled off.', o: 'supports', own: 'Dave Debugger — confirmed' }
       ],
       plan: [
-        ['done', "P2. ~35% of batch boots failing. dnsmasq logs and a tcpdump capture taken before any MTU change."],
-        ['done', "Protected the campaign timeline by keeping single boots working; scaling paused rather than retried blindly."],
-        ['done', "MITIGATION: subnet MTU reverted to 1500 and boots run in batches of 3. Scaling completes; jumbo frames temporarily lost."],
-        ['done', "Instances boot but 30-40% fail to obtain a DHCP lease on subnet net-app-02."],
-        ['done', "IS: net-app-02 during batch boots of 4+. IS NOT: net-app-01 on the same node at the same concurrency, and single boots on net-app-02."],
-        ['done', "Distinction: subnet MTU 8950 vs 1500 — provider bridge is 1500 in both cases. Change: MTU raised on 2026-08-17."],
-        ['done', "Known from KB-2025-0003 — oversized DHCP replies dropped on the path."],
-        ['done', "Agent overload eliminated (same dnsmasq serves net-app-01 cleanly). Pool exhaustion eliminated (200 of 254 addresses free)."],
-        ['done', "Reverted ONLY the subnet MTU and re-ran the 20-instance boot: 20/20 leases in under 5s. Symptom toggled off."],
-        ['not-started', "Permanent fix needs the network team to raise the provider bridge and uplink to 9000, then restore subnet MTU 8950. MTU consistency check to be added to the change template."]
+        ["done", "P2. ~35% of batch boots failing. dnsmasq logs and a tcpdump capture taken before any MTU change. · Protected the campaign timeline by keeping single boots working; scaling paused rather than retried blindly."],  // IMPACT
+        ["done", "MITIGATION: subnet MTU reverted to 1500 and boots run in batches of 3. Scaling completes; jumbo frames temporarily lost."],  // CONTAIN
+        ["done", "Instances boot but 30-40% fail to obtain a DHCP lease on subnet net-app-02. · IS: net-app-02 during batch boots of 4+. IS NOT: net-app-01 on the same node at the same concurrency, and single boots on net-app-02."],  // DEFINE
+        ["done", "Distinction: subnet MTU 8950 vs 1500 — provider bridge is 1500 in both cases. Change: MTU raised on 2026-08-17."],  // NARROW
+        ["done", "Known from KB-2025-0003 — oversized DHCP replies dropped on the path. · Agent overload eliminated (same dnsmasq serves net-app-01 cleanly). Pool exhaustion eliminated (200 of 254 addresses free)."],  // TEST
+        ["done", "Reverted ONLY the subnet MTU and re-ran the 20-instance boot: 20/20 leases in under 5s. Symptom toggled off."],  // CONFIRM
+        ["not-started", "Permanent fix needs the network team to raise the provider bridge and uplink to 9000, then restore subnet MTU 8950. MTU consistency check to be added to the change template."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Instances boot unreachable with no IP address', evidence: '7 of 20 instances have no lease' },
@@ -3708,16 +3723,13 @@
           a: 'Counters clean since 21:46. Network has recovered; the cluster has not.', o: 'refutes', own: 'Eve Eventloop' }
       ],
       plan: [
-        ['done', "P1. All RPC-heavy operations in HN, ~50% failure. Cluster status, both halves' queue state and switch syslog captured before any reset."],
-        ['done', "Escalated L3. Protected running workloads (data plane unaffected) and paused the compute scale-out."],
-        ['done', "MITIGATION: all services pointed at rabbit@node1. Operations succeed; messaging redundancy temporarily lost."],
-        ['done', "Nova and Neutron report RPC timeouts and agents flap; RabbitMQ logs a network partition that never heals."],
-        ['done', "IS: RPC round trips in HN since 21:48. IS NOT: read-only API calls, running instances, HCMC and DC1 entirely."],
-        ['done', "Distinction: HN saw link flaps, HCMC did not — identical RabbitMQ config on both. Change: switch firmware upgrade at 21:40."],
-        ['done', "Known from KB-2025-0007 — split cluster with partition_handling=ignore never heals."],
-        ['done', "Broker overload eliminated (CPU under 20%, queues shallow). Ongoing network fault eliminated (fabric counters clean since 21:46)."],
-        ['done', "Pointed services at node1 alone: 100% success, agent flapping stopped immediately. Confirms the split rather than a broker fault."],
-        ['not-started', "Cluster reset and rejoin, then pause_minority + net_ticktime 60. Needs Engineering authority and coordination with the in-flight network change."]
+        ["done", "P1. All RPC-heavy operations in HN, ~50% failure. Cluster status, both halves' queue state and switch syslog captured before any reset. · Escalated L3. Protected running workloads (data plane unaffected) and paused the compute scale-out."],  // IMPACT
+        ["done", "MITIGATION: all services pointed at rabbit@node1. Operations succeed; messaging redundancy temporarily lost."],  // CONTAIN
+        ["done", "Nova and Neutron report RPC timeouts and agents flap; RabbitMQ logs a network partition that never heals. · IS: RPC round trips in HN since 21:48. IS NOT: read-only API calls, running instances, HCMC and DC1 entirely."],  // DEFINE
+        ["done", "Distinction: HN saw link flaps, HCMC did not — identical RabbitMQ config on both. Change: switch firmware upgrade at 21:40."],  // NARROW
+        ["done", "Known from KB-2025-0007 — split cluster with partition_handling=ignore never heals. · Broker overload eliminated (CPU under 20%, queues shallow). Ongoing network fault eliminated (fabric counters clean since 21:46)."],  // TEST
+        ["done", "Pointed services at node1 alone: 100% success, agent flapping stopped immediately. Confirms the split rather than a broker fault."],  // CONFIRM
+        ["not-started", "Cluster reset and rejoin, then pause_minority + net_ticktime 60. Needs Engineering authority and coordination with the in-flight network change."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Scale, resize and migration operations fail', evidence: 'MessagingTimeout on roughly 50% of RPC calls' },
@@ -3843,16 +3855,13 @@
           a: '0% loss immediately, latency back to 12ms baseline, Galera queue drained. Confirmed.', o: 'supports', own: 'Frank Fixer — confirmed' }
       ],
       plan: [
-        ['done', "P1 Platinum. DR replication lagging, RPO at risk. Optical trend, per-member counters and Galera queue state captured."],
-        ['done', "Escalated SRE + vendor. Protected the RPO commitment by prioritising replication traffic while diagnosing."],
-        ['done', "MITIGATION: degraded LAG member administratively removed. 0% loss at 3/4 bandwidth; replication caught up in 18 minutes."],
-        ['done', "8-10% packet loss and latency spikes on the inter-site WAN link; replication lags and cross-site API calls fail."],
-        ['done', "IS: cross-site HN-HCMC traffic, ~25% of flows. IS NOT: intra-site traffic at both ends, and the HN-DC1 path on the same router."],
-        ['done', "Distinction: Rx power below threshold on one member of po1, nominal on po2. Change: none — 11 days of gradual optical degradation."],
-        ['done', "Known from PRB-0006 — degraded transceiver with LAG still hashing flows onto it."],
-        ['done', "Galera-as-cause eliminated (intra-site replication instant). Carrier/far-end eliminated (other three members clean on the same circuit)."],
-        ['done', "Disabled xe-0/0/2 only: 0% loss immediately, latency back to 12ms baseline, Galera queue drained."],
-        ['done', "Transceiver replaced 11:20, member re-added 11:35, clean for 40 min. Per-member Rx and CRC alerting extended to HN and HCMC — the gap that let 11 days pass unnoticed."]
+        ["done", "P1 Platinum. DR replication lagging, RPO at risk. Optical trend, per-member counters and Galera queue state captured. · Escalated SRE + vendor. Protected the RPO commitment by prioritising replication traffic while diagnosing."],  // IMPACT
+        ["done", "MITIGATION: degraded LAG member administratively removed. 0% loss at 3/4 bandwidth; replication caught up in 18 minutes."],  // CONTAIN
+        ["done", "8-10% packet loss and latency spikes on the inter-site WAN link; replication lags and cross-site API calls fail. · IS: cross-site HN-HCMC traffic, ~25% of flows. IS NOT: intra-site traffic at both ends, and the HN-DC1 path on the same router."],  // DEFINE
+        ["done", "Distinction: Rx power below threshold on one member of po1, nominal on po2. Change: none — 11 days of gradual optical degradation."],  // NARROW
+        ["done", "Known from PRB-0006 — degraded transceiver with LAG still hashing flows onto it. · Galera-as-cause eliminated (intra-site replication instant). Carrier/far-end eliminated (other three members clean on the same circuit)."],  // TEST
+        ["done", "Disabled xe-0/0/2 only: 0% loss immediately, latency back to 12ms baseline, Galera queue drained."],  // CONFIRM
+        ["done", "Transceiver replaced 11:20, member re-added 11:35, clean for 40 min. Per-member Rx and CRC alerting extended to HN and HCMC — the gap that let 11 days pass unnoticed."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'DR replication lags and the RPO is at risk', evidence: 'wsrep_local_recv_queue growing to 4820' },
@@ -3979,16 +3988,13 @@
           a: 'PENDING — this establishes the blast radius and gives the A/B its B side.', o: 'untested', own: 'Dave Debugger' }
       ],
       plan: [
-        ['done', "P2 Bronze. Configuration changes blocked; existing listeners still serving traffic. Worker, health-manager and amphora logs preserved."],
-        ['done', "Protected the working listeners by NOT failing over the amphora — that would destroy the stuck state."],
-        ['done', "Interim: customer routing through the existing port 443 listener. No platform change made."],
-        ['done', "New Octavia listeners remain in PENDING_UPDATE indefinitely and never transition to ACTIVE."],
-        ['in-progress', "IS: every listener create/update on lb-ingest-dc2, 6 of 6. IS NOT: not yet established — no control case captured."],
-        ['in-progress', "Blast radius unknown. Next: same operation on a second DC2 load balancer and on a DC1 one, to scope per-LB vs per-amphora vs deployment-wide."],
-        ['not-started', "Leading theory: worker taskflow blocked on a stale lock or unreleased claim. Needs the debug capture first."],
-        ['not-started', "Amphora reachability already eliminated (health checks pass, existing traffic served)."],
-        ['not-started', "Cannot verify until a cause is identified. Any test must be single-variable on lb-ingest-dc2 only."],
-        ['not-started', "Strong KB candidate: no article and no Problem record exists for this signature; the one prior sighting self-resolved undiagnosed."]
+        ["done", "P2 Bronze. Configuration changes blocked; existing listeners still serving traffic. Worker, health-manager and amphora logs preserved. · Protected the working listeners by NOT failing over the amphora — that would destroy the stuck state."],  // IMPACT
+        ["done", "Interim: customer routing through the existing port 443 listener. No platform change made."],  // CONTAIN
+        ["in-progress", "New Octavia listeners remain in PENDING_UPDATE indefinitely and never transition to ACTIVE. · IS: every listener create/update on lb-ingest-dc2, 6 of 6. IS NOT: not yet established — no control case captured."],  // DEFINE
+        ["in-progress", "Blast radius unknown. Next: same operation on a second DC2 load balancer and on a DC1 one, to scope per-LB vs per-amphora vs deployment-wide."],  // NARROW
+        ["not-started", "Leading theory: worker taskflow blocked on a stale lock or unreleased claim. Needs the debug capture first. · Amphora reachability already eliminated (health checks pass, existing traffic served)."],  // TEST
+        ["not-started", "Cannot verify until a cause is identified. Any test must be single-variable on lb-ingest-dc2 only."],  // CONFIRM
+        ["not-started", "Strong KB candidate: no article and no Problem record exists for this signature; the one prior sighting self-resolved undiagnosed."]   // FIX & LEARN
       ],
       causalChain: [
         { why: 'Customer cannot add the HTTPS listener and the release is blocked', evidence: '6 of 6 attempts stuck in PENDING_UPDATE' },
@@ -4114,16 +4120,13 @@
           a: 'Login succeeded immediately on staging. Root cause confirmed.', o: 'supports', own: 'Judy Java — confirmed' }
       ],
       plan: [
-        ['done', "P3. 14 new engineers blocked; existing users unaffected. SAML assertion dumped and Horizon/Keystone logs preserved."],
-        ['done', "Protected onboarding by unblocking users individually rather than changing federation mapping under pressure."],
-        ['done', "MITIGATION: temporary direct role assignments for the 14 users. Outside normal SSO governance, so explicitly temporary."],
-        ['done', "Horizon returns HTTP 500 immediately after the SAML redirect, but only for users created in the last 24 hours."],
-        ['done', "IS: users created after 2026-08-18 17:00. IS NOT: users created before it, application credentials, local accounts."],
-        ['done', "Distinction: group claim \"platform-cloud-users\" vs legacy \"cloud-users\". Change: customer IdP group rename on 2026-08-18, unannounced."],
-        ['done', "Known from KB-2025-0008 — mapping resolution finds no matching rule and raises an unhandled error."],
-        ['done', "Web-tier health eliminated (same node serves existing users). Missing-role eliminated — a direct grant works, which proves mapping is the failing stage."],
-        ['done', "Added the renamed group to the mapping on staging and retried one new-user login: succeeded immediately."],
-        ['in-progress', "Mapping update pending change approval, keeping the legacy group during transition. Synthetic SSO check and a change-notification agreement with the customer IdP team to follow."]
+        ["done", "P3. 14 new engineers blocked; existing users unaffected. SAML assertion dumped and Horizon/Keystone logs preserved. · Protected onboarding by unblocking users individually rather than changing federation mapping under pressure."],  // IMPACT
+        ["done", "MITIGATION: temporary direct role assignments for the 14 users. Outside normal SSO governance, so explicitly temporary."],  // CONTAIN
+        ["done", "Horizon returns HTTP 500 immediately after the SAML redirect, but only for users created in the last 24 hours. · IS: users created after 2026-08-18 17:00. IS NOT: users created before it, application credentials, local accounts."],  // DEFINE
+        ["done", "Distinction: group claim \"platform-cloud-users\" vs legacy \"cloud-users\". Change: customer IdP group rename on 2026-08-18, unannounced."],  // NARROW
+        ["done", "Known from KB-2025-0008 — mapping resolution finds no matching rule and raises an unhandled error. · Web-tier health eliminated (same node serves existing users). Missing-role eliminated — a direct grant works, which proves mapping is the failing stage."],  // TEST
+        ["done", "Added the renamed group to the mapping on staging and retried one new-user login: succeeded immediately."],  // CONFIRM
+        ["in-progress", "Mapping update pending change approval, keeping the legacy group during transition. Synthetic SSO check and a change-notification agreement with the customer IdP team to follow."]   // FIX & LEARN
       ],
       causalChain: [
         { why: '14 newly onboarded engineers cannot access the dashboard', evidence: 'HTTP 500 at /auth/websso/ for every attempt' },

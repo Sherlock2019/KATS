@@ -38,7 +38,7 @@
 
   const TASKS = {
     triage: 'Triage — is this known, a duplicate, a recurrence, or working as designed?',
-    action_plan: 'Lay out the Kepner-Tregoe sequence, skipping what is already known',
+    action_plan: 'Plan the 8-stage pipeline, skipping the stages already answered',
     probable_causes: 'Rank 3 probable causes with evidence and a single-variable test each',
     critique_plan: 'Review the engineer\'s plan and suggest changes',
     root_cause: 'Propose a root cause + category from the evidence',
@@ -336,17 +336,17 @@
    * to verification. That is the minimum-action objective made concrete.
    * ================================================================== */
   /* ---------------------------------------------------------------------
-   * UNIVERSAL TROUBLESHOOTING ACTION PLAN — 10 steps
+   * UNIVERSAL TROUBLESHOOTING PIPELINE — 8 stages
    *
-   *   Protect → Prioritize → Mitigate → Define → Isolate →
-   *   Hypothesize → Eliminate → Verify → Correct → Prevent
+   *   IMPACT → PRIORITIZE → CONTAIN → DEFINE → NARROW → TEST → CONFIRM → FIX & LEARN
    *
-   * Domain-neutral: works for IT, cloud, AI, infrastructure, manufacturing,
-   * operations and business processes. Two funnels run in parallel —
-   * operational (max impact → min impact) and diagnostic (max uncertainty →
-   * min uncertainty).
+   * The stage DEFINITIONS live in kt_pipeline.js — structure is not the
+   * agent's job. What lives here is the contextual `detail` for each stage:
+   * the same seven questions, rewritten around this ticket, this customer and
+   * whatever the KB already knows.
    *
-   * Exposed globally so the UI and the agent share one definition.
+   * KT_STEPS is kept only as the legacy 10-step reference used to migrate old
+   * saved tickets; nothing renders from it any more.
    * ------------------------------------------------------------------- */
   const KT_STEPS = [
     { n: 1, phase: 'PROTECT', title: 'Assess impact and protect evidence',
@@ -390,7 +390,8 @@
       why: 'Implement the permanent corrective action, verify normal operation is restored, identify systemic contributing causes, and capture the learning.',
       where: '§10.7', mins: 45 }
   ];
-  global.UNIVERSAL_PLAN = KT_STEPS;
+  global.LEGACY_KT_STEPS = KT_STEPS;
+  const STAGES = () => (global.Pipeline ? global.Pipeline.STAGES : []);
 
   function doActionPlan(ctx) {
     const t = doTriage(ctx);
@@ -413,77 +414,114 @@
     const wad = t.verdict === 'works_as_designed';
 
     const detail = {
-      1: 'Record severity, blast radius and who is affected. ' +
-         (ctx.site ? 'Impact is visible at ' + ctx.site + '. ' : '') +
-         'Snapshot logs, configs, versions and counters BEFORE any change — mitigation destroys evidence.',
-      2: 'Severity is S' + (ctx.priority || '?') + (ctx.blast_radius ? ', blast radius ' + ctx.blast_radius : '') + '. Decide what must be protected or restored first: ' +
-         'customer service, data integrity, or the remaining healthy capacity.',
-      3: known
+      /* Evidence capture is stated HERE and nowhere else. It is an output of
+         IMPACT, not a caveat inside CONTAIN — by the time someone is
+         mitigating, the state they needed is usually already gone. */
+      impact: 'Severity S' + (ctx.priority || '?') +
+        (ctx.blast_radius ? ', blast radius ' + ctx.blast_radius : '') + '. ' +
+        (ctx.site ? 'Impact is visible at ' + ctx.site + '. ' : '') +
+        'Record who is affected. Then snapshot logs, ' +
+        'configs, versions and counters BEFORE any change — mitigation destroys evidence.',
+
+      prioritize: 'Decide what to protect or restore first, before touching anything. ' +
+        (ctx.blast_radius ? 'Blast radius is ' + ctx.blast_radius + ' — ' : '') +
+        'rank the actions available by what each one PROTECTS per minute spent, ' +
+        'and commit to one. An irreversible action is never the quick win.',
+
+      contain: known
         ? 'A proven mitigation exists in ' + src + ': ' +
           ((problem && problem.workaround) || (kb && kb.workaround) || 'see the article') +
-          '. Apply it, and record it as MITIGATION — not as the fix.'
-        : 'Find the smallest safe action that reduces impact without hiding the cause. Avoid a blanket restart if it erases the failing state.',
-      4: ctx.deviation
-        ? 'Stated: "' + String(ctx.deviation).slice(0, 110) + '". Confirm it names an object and a defect, and contains no theory.'
-        : 'One sentence: what should be happening, and what is happening instead.',
-      5: 'Bound it on WHAT / WHERE / WHEN / EXTENT. ' +
-         (ctx.site ? 'You have ' + ctx.site + ' affected — now name a comparable site, node or tenant that is NOT.'
-                   : 'Name the comparable cases that are healthy.') +
-         ' The IS NOT population is the more informative half.',
-      6: known
-        ? 'ALREADY ISOLATED by ' + src + ': ' +
+          '. Apply it and record it as MITIGATION — not as the fix.'
+        : 'Find the smallest safe REVERSIBLE action that reduces impact without hiding the cause. ' +
+          'Failover · rollback · disable · bypass · route around · scale · isolate · rate-limit. ' +
+          'Avoid a blanket restart if it erases the failing state.',
+
+      define: (ctx.deviation
+        ? 'Stated: "' + String(ctx.deviation).slice(0, 110) + '". Confirm it names an object and a defect, and contains no theory. '
+        : 'One sentence: what should be happening, and what is happening instead. ') +
+        'Then bound it on WHAT / WHERE / WHEN / EXTENT — ' +
+        (ctx.site ? 'you have ' + ctx.site + ' affected, so name a comparable site, node or tenant that is NOT.'
+                  : 'name the comparable cases that are healthy.') +
+        ' The IS NOT population is the more informative half.',
+
+      narrow: known
+        ? 'ALREADY NARROWED by ' + src + ': ' +
           ((kb && kb.distinctions && kb.distinctions[0])
             ? kb.distinctions[0].dimension + ' — IS ' + kb.distinctions[0].is + ' / IS NOT ' + kb.distinctions[0].is_not
             : 'see the documented distinction') +
           '. Confirm the same distinction holds here rather than re-deriving it.'
-        : 'Divide the search space: all customers? all sites? all nodes? all versions? Keep splitting until few mechanisms remain, then ask what changed around that difference.',
-      7: known
+        : 'Two questions only. WHAT IS DIFFERENT between the failing and the working case? ' +
+          'Then WHAT CHANGED around that difference? Keep splitting — all customers? all sites? ' +
+          'all nodes? all versions? — until few mechanisms remain.',
+
+      test: known
         ? 'ALREADY KNOWN: ' + ((problem && problem.root_cause_statement) || (kb && kb.root_cause) || '').slice(0, 150) +
-          '. Do not regenerate hypotheses.'
-        : 'What mechanisms could produce exactly this pattern? Derive them from the distinctions and changes, not from memory.',
-      8: known
-        ? 'Already tested against the specification when ' + src + ' was raised.'
-        : 'For each candidate ask: does it explain the IS AND the IS NOT, the WHEN and the EXTENT? Eliminate any that contradict a known fact; rank the survivors by assumptions needed.',
-      9: known
+          '. Do not regenerate candidates and do not re-run the elimination — it was done when ' + src + ' was raised.'
+        : 'First derive candidates from the distinctions and changes, not from memory. ' +
+          'Then pick ONE test: does each candidate explain the IS AND the IS NOT, the WHEN and the EXTENT? ' +
+          'Choose the test with the best chance of ending this per minute spent, and prefer a reversible one.',
+
+      confirm: known
         ? 'Apply the documented fix to ONE target and confirm the symptom toggles off: ' +
           ((kb && kb.verification && kb.verification.test) || 're-run the reproduction')
-        : 'Make the problem appear or disappear on demand. Change ONE factor, reversibly, on ONE target.',
-      10: known
+        : 'Make the problem appear or disappear on demand. Change ONE factor, reversibly, on ONE target. ' +
+          'The cause must explain the IS and the IS NOT — correlation is not enough to pass this gate.',
+
+      fix: known
         ? 'Apply the permanent fix from ' + src + ', re-run the reproduction, then link this case to the Problem so recurrence is counted and the systemic cause stays visible.'
-        : 'Apply the minimal safe correction, confirm normal operation, identify why this was possible at all, add monitoring or a guardrail, and publish the KB article.'
+        : 'Apply the minimal safe correction, confirm normal operation, identify why this was possible at all, add monitoring or a guardrail, publish the KB article, and set a watch window for recurrence.'
     };
 
-    r.plan_steps = KT_STEPS.map(s => {
-      let status = 'not-started', shortcut = '', mins = s.mins;
-      if (wad && s.n >= 5 && s.n <= 9) { status = 'n/a'; shortcut = 'not a fault'; mins = 0; }
-      else if (known && s.n >= 6 && s.n <= 8) { status = 'done'; shortcut = 'known from ' + src; mins = 0; }
-      else if (ctx.deviation && s.n === 4) { status = 'done'; mins = 0; }
+    /* What the pipeline SKIPS is the whole value. A known cause means NARROW
+       and TEST are already answered; works-as-designed means there is no
+       fault to narrow, test or confirm at all. */
+    const NA_WHEN_WAD = ['narrow', 'test', 'confirm'];
+    const DONE_WHEN_KNOWN = ['narrow', 'test'];
+
+    r.plan_steps = STAGES().map(s => {
+      let status = 'not-started', shortcut = '', mins = s.est_mins;
+
+      const skip = global.Pipeline.skipReason(s, {
+        severity: ctx.priority, blast_radius: ctx.blast_radius,
+        impact_growing: ctx.impact_growing, verdict: t.verdict
+      });
+
+      if (wad && NA_WHEN_WAD.indexOf(s.key) >= 0) { status = 'n/a'; shortcut = 'not a fault'; mins = 0; }
+      else if (skip) { status = 'n/a'; shortcut = skip; mins = 0; }
+      else if (known && DONE_WHEN_KNOWN.indexOf(s.key) >= 0) { status = 'done'; shortcut = 'known from ' + src; mins = 0; }
+
       return {
-        n: s.n, title: s.title, where: s.where, status, shortcut,
-        todo: wad && s.n === 10
+        key: s.key, n: s.n, icon: s.icon, phase: s.label, title: s.title,
+        where: s.where, question: s.question, output: s.output, why: s.why,
+        status, shortcut,
+        todo: wad && s.key === 'fix'
           ? 'No fix required. Send the customer the documented behaviour and the correct validation method, set root cause = works-as-designed, and close.'
-          : detail[s.n],
-        why: s.why, phase: s.phase, question: s.question, est_mins: mins, owner: '', notes: ''
+          : detail[s.key],
+        est_mins: mins, owner: '', notes: ''
       };
     });
 
     const remaining = r.plan_steps.filter(s => s.status === 'not-started');
-    r.actions = remaining.map((s, i) => ({
-      seq: i + 1, action: s.title, why: s.why, expected: s.todo,
-      risk: s.n === 9 ? 'Low — single target, reversible' : 'None',
-      est_mins: s.est_mins, source: src || 'KT method'
-    }));
+
+    /* The step cards below already carry title, why and expected. Repeating
+       all of that here produced two renderings of the same ten items on one
+       screen — the panel now states only what the agent DECIDED, and the
+       cards remain the single place the work is described. */
+    r.actions = [];
 
     const skipped = r.plan_steps.length - remaining.length;
+    const total = r.plan_steps.length;
     r.headline = wad
-      ? 'Works as designed — ' + skipped + ' of 10 KT steps do not apply. Confirm, explain, close.'
+      ? 'Works as designed — NARROW, TEST and CONFIRM do not apply. Confirm, explain, close.'
       : known
-        ? 'Known cause from ' + src + ' — ' + skipped + ' of 10 KT steps are already answered. Go straight to verification.'
-        : 'No prior knowledge — run the full 10-step KT sequence. ' + remaining.length + ' steps to work.';
+        ? 'Known cause from ' + src + ' — NARROW and TEST are already answered. Go straight to CONFIRM.'
+        : 'No prior knowledge — run the full pipeline. ' + remaining.length + ' of ' + total + ' stages to work.';
     r.reasoning = t.reasoning.concat([
-      'Steps 6-8 (isolate → hypothesize → eliminate) are the expensive middle of any investigation.',
-      known ? 'They are skipped here because ' + src + ' already carries a validated cause — that is where the time saving comes from.'
-            : 'They cannot be skipped here: nothing in the KB or the customer history matches this signature.'
+      'NARROW → TEST is the expensive middle of any investigation, and it is a loop, not two steps: ' +
+      'every refuted candidate sends you back to NARROW.',
+      known ? 'The loop is skipped entirely here because ' + src + ' already carries a validated cause and a documented distinction — that is where the time saving comes from.'
+            : 'The loop cannot be skipped here: nothing in the KB or the customer history matches this signature.',
+      skipped ? skipped + ' of ' + total + ' stages need no work on this ticket.' : 'Every stage needs work on this ticket.'
     ]);
     return finish(r);
   }

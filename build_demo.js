@@ -2,11 +2,12 @@
 /* =============================================================================
  * build_demo.js — bundle the multi-file app into ONE standalone HTML file.
  *
- *   node build_demo.js
+ *   node build_demo.js        -> v9 (default)  kt_support_demo_v9.html
+ *   node build_demo.js v8     -> v8 (legacy)   kt_support_demo.html
  *
- * Reads  : kt_support_v8.html + kb_database.js + kt_data.js + ai_agent.js
+ * Reads  : kt_support_v<N>.html + the local scripts for that version
  *          + vendor assets (downloaded once into ./vendor/)
- * Writes : kt_support_demo.html — zero external requests, works offline.
+ * Writes : kt_support_demo*.html — zero external requests, works offline.
  *
  * Re-run this after editing any source file.
  *
@@ -18,6 +19,7 @@
  *   curl -o vendor/bootstrap.bundle.min.js https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js
  *   curl -o vendor/fontawesome.min.css    https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css
  *   curl -o vendor/fa-solid-900.woff2     https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/webfonts/fa-solid-900.woff2
+ *   curl -o vendor/mermaid.min.js         https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js
  * ========================================================================== */
 'use strict';
 
@@ -28,16 +30,44 @@ const https = require('https');
 const DIR = __dirname;
 const VENDOR = path.join(DIR, 'vendor');
 
-const SOURCE = 'kt_support_v8.html';
-const OUTPUT = 'kt_support_demo.html';
-// Load order matters: KB layer -> entities -> agent -> demo data
-const LOCAL_SCRIPTS = ['kb_database.js', 'kt_data.js', 'ai_agent.js', 'demo_tickets.js'];
+/* Each release pins its own source + script set, so rebuilding v8 after v9
+   shipped still produces the v8 bundle rather than a half-merged one. */
+const VERSIONS = {
+  v8: {
+    source: 'kt_support_v8.html',
+    output: 'kt_support_demo.html',
+    title: 'KATS — KT AI Enhanced Ticket Support System',
+    // Load order matters: KB layer -> entities -> agent -> demo data
+    scripts: ['kb_database.js', 'kt_data.js', 'ai_agent.js', 'demo_tickets.js']
+  },
+  v9: {
+    source: 'kt_support_v9.html',
+    output: 'kt_support_demo_v9.html',
+    title: 'KATS v9 — KT AI Ticket Support with Customer Topology',
+    // kt_topology.js reads Customers/Cases, so it loads after kt_data.js;
+    // kt_pipeline.js owns the 8 stage definitions the agent reads, so it
+    // must load before ai_agent.js
+    scripts: ['kb_database.js', 'kt_data.js', 'kt_topology.js', 'kt_pipeline.js',
+              'kt_intake.js', 'ai_agent.js', 'demo_tickets.js']
+  }
+};
+
+const TARGET = (process.argv[2] || 'v9').toLowerCase();
+if (!VERSIONS[TARGET]) {
+  console.error('Unknown version "' + TARGET + '". Known: ' + Object.keys(VERSIONS).join(', '));
+  process.exit(1);
+}
+const V = VERSIONS[TARGET];
+const SOURCE = V.source;
+const OUTPUT = V.output;
+const LOCAL_SCRIPTS = V.scripts;
 
 const ASSETS = {
   'bootstrap.min.css': 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
   'bootstrap.bundle.min.js': 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js',
   'fontawesome.min.css': 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css',
-  'fa-solid-900.woff2': 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/webfonts/fa-solid-900.woff2'
+  'fa-solid-900.woff2': 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/webfonts/fa-solid-900.woff2',
+  'mermaid.min.js': 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js'
 };
 
 function get(url) {
@@ -80,13 +110,31 @@ function build() {
     .replace(/,?url\(\.\.\/webfonts\/[^)]+\)\s*format\("truetype"\)/g, '')
     .replace(/url\(\.\.\/webfonts\/[^)]+\)/g, 'url(data:,)');
 
+  /* Minified bundles are full of `$&`, `` $` `` and `$1`, which String.replace
+     expands as substitution patterns when the replacement is a STRING — that
+     silently re-injects the tag being replaced. A replacer FUNCTION is the only
+     safe way to splice arbitrary code in. */
+  const lit = s => () => s;
+  const inlineOnce = (re, replacement, what) => {
+    if (!re.test(html)) throw new Error('Could not find the ' + what + ' tag in ' + SOURCE);
+    html = html.replace(re, lit(replacement));
+  };
+
   html = html
     .replace(/<link rel="stylesheet" href="https:\/\/cdnjs\.cloudflare\.com[^"]*">/,
-      '<style id="fontawesome-inlined">\n' + fa + '\n</style>')
+      lit('<style id="fontawesome-inlined">\n' + fa + '\n</style>'))
     .replace(/<link rel="stylesheet" href="https:\/\/cdn\.jsdelivr\.net[^"]*">/,
-      '<style id="bootstrap-inlined">\n' + fs.readFileSync(path.join(VENDOR, 'bootstrap.min.css'), 'utf8') + '\n</style>')
-    .replace(/<script src="https:\/\/cdn\.jsdelivr\.net[^"]*"><\/script>/,
-      '<script id="bootstrap-js-inlined">\n' + fs.readFileSync(path.join(VENDOR, 'bootstrap.bundle.min.js'), 'utf8') + '\n</script>');
+      lit('<style id="bootstrap-inlined">\n' + fs.readFileSync(path.join(VENDOR, 'bootstrap.min.css'), 'utf8') + '\n</style>'));
+
+  inlineOnce(/<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/bootstrap@[^"]*"><\/script>/,
+    '<script id="bootstrap-js-inlined">\n' + fs.readFileSync(path.join(VENDOR, 'bootstrap.bundle.min.js'), 'utf8') + '\n</script>',
+    'bootstrap js');
+
+  if (/cdn\.jsdelivr\.net\/npm\/mermaid@/.test(html)) {
+    inlineOnce(/<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/mermaid@[^"]*"><\/script>/,
+      '<script id="mermaid-inlined">\n' + fs.readFileSync(path.join(VENDOR, 'mermaid.min.js'), 'utf8') + '\n</script>',
+      'mermaid');
+  }
 
   LOCAL_SCRIPTS.forEach(f => {
     const src = read(f);
@@ -94,11 +142,10 @@ function build() {
     if (/<\/script/i.test(src)) throw new Error('Cannot inline ' + f + ': it contains a literal </script>');
     const tag = '<script src="' + f + '"></script>';
     if (!html.includes(tag)) throw new Error('Could not find ' + tag + ' in ' + SOURCE);
-    html = html.replace(tag, '<script id="' + f.replace(/\./g, '-') + '-inlined">\n' + src + '\n</script>');
+    html = html.replace(tag, lit('<script id="' + f.replace(/\./g, '-') + '-inlined">\n' + src + '\n</script>'));
   });
 
-  html = html.replace(/<title>[^<]*<\/title>/,
-    '<title>KATS — KT AI Enhanced Ticket Support System</title>');
+  html = html.replace(/<title>[^<]*<\/title>/, '<title>' + V.title + '</title>');
 
   // Only RESOURCE loads matter — an <a href> to documentation is fine and
   // triggers no request until the reader clicks it.
@@ -114,6 +161,7 @@ function build() {
 
 (async () => {
   try {
+    console.log('Target: ' + TARGET + '  (' + SOURCE + ' -> ' + OUTPUT + ')\n');
     console.log('Vendor assets:');
     await ensureVendor();
     console.log('\nBundling:');
