@@ -36,7 +36,10 @@ vendor/
 # ---------------------------------------------------------------------------
 .venv/
 rag/.env
+kt-ai-support/.env
+kt-ai-support/backend/.env
 rag-api.pid
+kt-api.pid
 __pycache__/
 *.pyc
 

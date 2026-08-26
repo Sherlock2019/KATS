@@ -1,0 +1,43 @@
+# =============================================================================
+# KT AI Support
+#
+# Postgres runs in Docker; the backend runs on the host so it can reach
+# Ollama on 127.0.0.1:11434 without container-networking games and so
+# editing a service does not mean rebuilding an image.
+#
+# Port 5434: 5432 belongs to the credit-appraisal PoC on this machine and
+# 5433 to the KATS v9.3 store. Three Postgres containers fighting over one
+# port is a confusing first five minutes.
+#
+#   docker compose -f kt-ai-support/docker-compose.yml up -d
+#   docker compose -f kt-ai-support/docker-compose.yml down      # keep data
+#   docker compose -f kt-ai-support/docker-compose.yml down -v   # wipe data
+# =============================================================================
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: kt_ai_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kt_ai_support}
+      POSTGRES_USER: ${POSTGRES_USER:-kt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kt_password}
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - kt_ai_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kt} -d ${POSTGRES_DB:-kt_ai_support}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # The schema is NOT mounted as an init script. It carries ${EMBEDDING_DIM},
+  # which only the application knows, so migrations/run.py applies it:
+  #
+  #   python -m migrations.run
+  #
+  # That also means a schema change never requires wiping the volume.
+
+volumes:
+  kt_ai_data:
