@@ -47,8 +47,11 @@ const VERSIONS = {
     // kt_topology.js reads Customers/Cases, so it loads after kt_data.js;
     // kt_pipeline.js owns the 8 stage definitions the agent reads, so it
     // must load before ai_agent.js
+    // kt_record.js reads the intake field list and the KB vocab, so it loads
+    // after both; kt_rag.js calls Record.toRagDoc(), so it loads after that.
     scripts: ['kb_database.js', 'kt_data.js', 'kt_topology.js', 'kt_pipeline.js',
-              'kt_intake.js', 'ai_agent.js', 'demo_tickets.js']
+              'kt_intake.js', 'kt_record.js', 'kt_rag.js', 'ai_agent.js',
+              'demo_tickets.js']
   }
 };
 

@@ -6,7 +6,12 @@ history and problem register to find the **shortest path to resolution**, includ
 to troubleshoot at all.
 
 > **Proof of concept.** Runs entirely in a browser, offline, from a single file.
-> The AI agent is a **mock** — no model is called. See [Is the AI real?](#is-the-ai-real)
+> The built-in agent is a **mock** — no model is called. See [Is the AI real?](#is-the-ai-real)
+>
+> **There is now a real one too.** `./start.sh rag` brings up PostgreSQL/pgvector,
+> a retrieval API and a local LLM, and adds a chat box to the support view that
+> answers from your actual ticket base. Nothing leaves the machine.
+> See [The RAG backend](#the-rag-backend-start-sh-rag).
 
 ---
 
@@ -26,9 +31,14 @@ ticket, and compare them.
 ./start.sh v8       # the previous release, for comparison
 ./start.sh core     # straight to the legacy view
 ./start.sh --build  # rebuild the bundle first, then serve
+
+./start.sh rag      # THE FULL STACK — Postgres/pgvector + retrieval API + local LLM
+./start.sh install  # install and pull everything, start nothing
+./start.sh stop     # stop the backend (the data volume survives)
 ```
 
-No install, no build, no internet. You can also just double-click `rax_ticket_support_page.html`.
+The first four need no install, no build and no internet. You can also just
+double-click `rax_ticket_support_page.html`.
 
 ---
 
@@ -243,6 +253,138 @@ intake form that never asks produces a ticket support cannot start on.
 While they type, the portal checks their signature against the KB and against **their own** prior
 cases — never another tenant's — so a known issue can be answered before the ticket is even raised.
 
+### The ticket summary table *(v9.3)*
+
+Both funnels meet on one table.
+
+The customer funnel now **ends** on a *Ticket summary* — every answer they gave,
+gathered into the **Kepner-Tregoe specification grid** rather than a flat dump of
+the form:
+
+| | IS | IS NOT |
+|---|---|---|
+| **WHAT** | what actually happens · the exact error | what *should* happen |
+| **WHERE** | site · component · node · VM | other sites unaffected |
+| **WHEN** | first noticed · frequency · trigger | last known good |
+| **EXTENT** | who and how much · is it spreading | what is NOT affected but could be |
+| **CHANGES** | patch, deploy, config edit, new image | — |
+| **EVIDENCE** | full output · repro · already tried | — |
+
+The support funnel **opens** on the same table, at **§0.0**, above the details —
+the report read once, whole, before anyone touches a field. A toggle adds the
+support half (severity, hypotheses, cause, fix); another shows the gaps.
+
+There is one row list, in `kt_record.js`, and both views render it. That is the
+point: the two sides cannot describe one ticket differently. Empty rows stay
+visible rather than being hidden, because a blank *"what is NOT affected"* is
+itself information — and those blanks are exactly what closure fills in.
+
+### The RAG backend *(`./start.sh rag`)*
+
+The customer's answers are **input data** — a question, not an answer. The KB
+article written at closure is the answer. Both are worth retrieving, for
+different questions, so both go into one store separated by a `doc_type`:
+
+| `doc_type` | Written at | Answers | Tenant |
+|---|---|---|---|
+| `intake` | submit | *"has anyone else hit this?"* | the customer's own |
+| `resolution` | closure | *"what actually fixed it?"* | the customer's own |
+| `kb` | publication | *"is there a verified fix?"* | **shared (`*`)** |
+
+A KB article is scrubbed of customer identity before it is published and is
+meant to be found by everyone, so it is the one record written under the shared
+tenant `*`. A tenant-scoped query returns its own rows **plus** `*`, and nothing
+else — an unknown tenant asking about a Windows metadata failure gets the KB
+articles and zero tickets. `test_record.js` and the schema comment both say so;
+`rag/seed_demo.js` aborts if a ticket is ever built under `*`.
+
+**The demo data is loaded for you.** `./start.sh rag` runs `rag/seed_demo.js` on
+an empty store: **128 documents / 232 chunks** — 12 KB articles, the 10 fully
+worked demo tickets (IS/IS NOT, changes, the tested hypothesis matrix with its
+verdicts) and the ~100-case history. Takes about 90 seconds to embed, once.
+`FORCE_SEED=1` re-ingests, `SEED_DEMO=0` skips it, `--dry-run` builds the
+documents and posts nothing.
+
+The seeder builds those documents with the **same `kt_record.js` the browser
+uses** rather than a SQL fixture — a fixture would be a second definition of the
+record shape, and the day it drifted the store would hold two incompatible kinds
+of document with no way to tell them apart.
+
+**The stack**, all local, nothing leaving the machine:
+
+```
+browser  ──►  FastAPI :8001  ──►  PostgreSQL + pgvector :5433
+                   │
+                   └────────────►  Ollama :11434   generation + embeddings
+```
+
+**Two tables, deliberately.** `ticket` holds the structured truth — facets as
+columns, so they can be filtered, counted and displayed, and **never embedded**
+(`cntVms: 12` in a vector is noise that dilutes the sentences carrying the
+meaning). `ticket_chunk` is the retrieval surface: **one row per KT section**,
+not one per ticket and not one per field. A ticket's WHEN block and its error
+block answer different questions; one blob per ticket retrieves badly for both.
+
+**Retrieval is hybrid** — pgvector cosine similarity fused with Postgres
+full-text by reciprocal rank. Vector-only loses on exact error strings, which is
+most of what support pastes in; lexical-only loses on *"VM won't boot"* vs
+*"instance fails to spawn"*. RRF needs no score normalisation between the two,
+so there is no weighting to re-tune. Every hit reports **why** it matched
+(`semantic #1 · keyword #1`), the same rule `KB.search()` already follows.
+
+**Two models, two jobs.** A chat model cannot produce embeddings:
+
+| | Model | Size | Note |
+|---|---|---|---|
+| Generation | **`phi3`** *(default)* | 2.2 GB | chosen for CPU — see the numbers below |
+| | `gemma4:latest` | 9.6 GB | better reasoning, several minutes per answer on CPU |
+| Embeddings | **`embeddinggemma`** | 621 MB | 768-dim, which is what `rag/db/init.sql` declares |
+
+**It is tuned for a CPU laptop, and the tuning is the difference between a demo
+and a wait.** Measured on this machine, same question, same 6 evidence chunks:
+
+| | Before | After |
+|---|---|---|
+| Evidence table visible | 156 s | **0.3 s** |
+| First sentence visible | 156 s | **5 s** |
+| Complete answer | 156 s | **37 s** |
+
+Four changes got that: **streaming** the answer as the model writes it
+(`/chat/stream`, NDJSON — evidence first, then tokens), a **shorter answer
+contract** (600-token cap, ~200 words — generation dominates on CPU and every
+output token costs the same wall time), **trimmed evidence** (6 chunks, 900
+chars each — a full error dump is thousands of characters that add nothing past
+the first few lines), and **`keep_alive`** plus a background warm-up at startup
+so the model is resident before the first question.
+
+Changing the embedder to a different dimension means altering that column *and*
+re-embedding every row — the backend refuses to start on a mismatch rather than
+writing garbage. If no embedder is reachable it falls back to a deterministic
+hashing embedding so a first run is not a dead end, and says so in `/health` and
+on the chat panel: that fallback is **keyword-only, not semantic**.
+
+**The chat box** lives in the support view, under *Ask the ticket base*. Scope it
+to one customer or the whole fleet, and to intake / resolution / KB. The
+**Evidence table** appears before the first word of the answer — which tickets,
+which sections, why each one matched — because a retrieval answer nobody can
+audit is one nobody should act on. Ask it something the store has nothing on and
+it says so instead of guessing (there is a test for that).
+
+**It is support-only, by construction.** The customer view has no route to it,
+for the same reason it has no route to `AIAgent`: a fleet-wide search returns
+other tenants' tickets.
+
+**Privacy is enforced in code, not by convention.** Contact name, email/phone and
+the access notes are dropped from the document before it leaves the browser —
+useless for retrieval and the one thing that must not cross a tenant boundary —
+and whatever survives goes through `KB.scrubSecrets()`. `customer_id` is
+denormalised onto every chunk so the tenant filter never needs a join.
+`test_record.js` asserts all of it.
+
+**The offline demo is untouched.** The backend is opt-in per browser: with the
+switch off, nothing on the page makes a network request, exactly as before. Same
+pattern the KB API endpoint in §10.0.2 already used.
+
 ### Customer topology mind map *(v9)*
 
 Pick a customer on the ticket form and §0.1 draws every **open** ticket that customer has as a
@@ -359,6 +501,9 @@ The design goal is **fewest actions and fewest minutes to a correct answer** —
 | `kt_topology.js` | **v9.** Infra topology (customer → site → infra location), mermaid emitters, windowed ticket history |
 | `kt_pipeline.js` | **v9.1.** The 8 stage definitions, computed progress, the loop model, the next-best-action rule, and the 10→8 migration |
 | `kt_intake.js` | **v9.2.** The customer intake contract — field list, ticket quality model, customer-safe KB lookup, and the queue the support view reads |
+| `kt_record.js` | **v9.3.** The ticket summary record — one KT row list rendered in both funnels, plus `toRagDoc()` (facets, PII stripping, per-section chunking) |
+| `kt_rag.js` | **v9.3.** Browser client for the RAG backend. Every call resolves to `null` when no endpoint is set, so the offline demo is unaffected |
+| `rag/` | **v9.3.** The backend: `docker-compose.yml` (pgvector), `db/init.sql` (the schema), `backend/app/` (FastAPI, embeddings, hybrid search, local LLM), `seed_demo.js` (loads the KB + demo tickets + case history into the store) |
 | `ai_agent.js` | The AI agent layer — **mock**, with the real contract, and the shared 10-step plan |
 | `demo_tickets.js` | 10 fully-populated demo tickets, each with a related case and a filled plan |
 | `build_demo.js` | Bundles everything into the single standalone file (`node build_demo.js v9\|v8`) |
@@ -387,6 +532,7 @@ bundle can't ship silently.
 ```bash
 node test_topology.js   # topology + history checks, no dependencies
 node test_pipeline.js   # 8-stage pipeline, 10→8 migration, next-best-action
+node test_record.js     # the summary record, and that no PII or secret reaches the RAG doc
 ```
 
 ---
@@ -412,10 +558,21 @@ The eight tasks: `triage`, `action_plan`, `probable_causes`, `critique_plan`, `r
 
 ### Making it genuinely intelligent
 
-Retrieval today is lexical scoring, so *"VM won't boot"* and *"instance fails to spawn"* score as
-unrelated. Every article already carries an assembled `embedding_text` field for exactly this reason —
-blend vector similarity into `KB.score()` and all the agent's matching features become semantic at
-once, with no UI changes.
+**Done, for the ticket store.** `./start.sh rag` runs real embeddings and real
+hybrid retrieval over PostgreSQL/pgvector, answered by a local model — see
+[The RAG backend](#the-rag-backend-start-sh-rag). *"VM won't boot"* and
+*"instance fails to spawn"* now match.
+
+**Still to do, for the KB.** `KB.score()` in the browser remains lexical. Every
+article already carries an assembled `embedding_text` field for exactly this
+reason — the ingest path in `rag/backend/app/embeddings.py` can embed those
+articles as a third `doc_type` and all the mock agent's matching features become
+semantic at once, with no UI changes.
+
+**Also still to do:** `AIAgent._infer()` is still the mock. The RAG backend
+proves the loop end to end (retrieve → ground → answer → cite), so pointing
+`_infer()` at `POST /chat` is the remaining step, and the `AIResult` shape the UI
+consumes does not change.
 
 ---
 
@@ -434,10 +591,23 @@ once, with no UI changes.
 
 This is a **proof of concept**, honestly labelled:
 
-- The AI agent is mocked (see above).
-- Storage is per-browser `localStorage` — fine for one operator, not for a team. Multi-user needs the
-  KB/case API endpoints wired to a real backend; the POST paths exist and are tested.
-- Search is lexical, not semantic.
+- The **built-in** AI agent is mocked (see above). The RAG chat box is real, but it is a
+  separate surface — it does not yet drive triage, the pipeline, or the action plan.
+- Browser storage is per-browser `localStorage` — fine for one operator, not for a team.
+  With `./start.sh rag` the ticket summaries do reach a shared PostgreSQL, but the case
+  store, the KB and the drafts still live in the browser.
+- KB search in the browser is lexical. Ticket retrieval through the RAG backend is
+  hybrid (semantic + keyword) — but only when an embedding model is installed; without
+  one it silently degrades to the keyword-only hash fallback, which `/health` and the
+  chat panel both report.
+- The RAG stack is a **laptop** configuration: CORS is wide open, Postgres has a default
+  password in `docker-compose.yml`, and there is no authentication on the API. All three
+  need fixing before it leaves 127.0.0.1.
+- The default `phi3` answers in ~37 seconds on CPU and streams, so it reads well —
+  but it is a 3.8B model, and it summarises the evidence more than it reasons over
+  it. `KATS_LLM_MODEL=gemma4:latest` reasons visibly better across several tickets
+  and takes several minutes per answer on the same hardware. That trade is the
+  honest state of local inference on a laptop, not a bug to be tuned away.
 - The dashboard's recent activity is synthesised relative to today, so the demo never goes stale.
 - The UI field is `severity`, but stored case and KB records still use `priority` as the schema key —
   renaming it across 100+ seeded records was not worth the risk for a PoC.

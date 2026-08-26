@@ -30,6 +30,17 @@ kt_support_v7.html
 vendor/
 
 # ---------------------------------------------------------------------------
+# RAG backend — local runtime state, recreated by ./start.sh rag
+# rag/.env can hold a real database password; rag/.env.example is the template
+# and IS versioned.
+# ---------------------------------------------------------------------------
+.venv/
+rag/.env
+rag-api.pid
+__pycache__/
+*.pyc
+
+# ---------------------------------------------------------------------------
 # Noise
 # ---------------------------------------------------------------------------
 node_modules/

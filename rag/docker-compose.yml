@@ -1,0 +1,39 @@
+# =============================================================================
+# KATS RAG store.
+#
+# Postgres only. The API runs on the host (uvicorn, started by ../start.sh) so
+# it can reach Ollama on 127.0.0.1:11434 without container networking games,
+# and so editing a router does not mean rebuilding an image.
+#
+# Port 5433, not 5432: the credit-appraisal PoC on this machine already owns
+# 5432, and two Postgres containers fighting over one port is a confusing
+# first five minutes.
+#
+#   docker compose -f rag/docker-compose.yml up -d
+#   docker compose -f rag/docker-compose.yml down          # keeps the volume
+#   docker compose -f rag/docker-compose.yml down -v       # wipes the data
+# =============================================================================
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: kats_rag_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kats_rag}
+      POSTGRES_USER: ${POSTGRES_USER:-kats}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kats_password}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - kats_rag_data:/var/lib/postgresql/data
+      # Runs once, on an empty volume. ../start.sh also applies it on every
+      # boot (it is idempotent), so a schema change does not need a wipe.
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kats} -d ${POSTGRES_DB:-kats_rag}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  kats_rag_data:

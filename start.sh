@@ -1,14 +1,34 @@
 #!/usr/bin/env bash
 # =============================================================================
-# start.sh — serve the KT Support demo and open it in a browser.
+# start.sh — serve the KT Support demo, and optionally the whole AI backend.
 #
-#   ./start.sh              chooser page
+#   ./start.sh              chooser page (offline, zero dependencies)
 #   ./start.sh kats         serve kt_support_demo_v9.html (standalone, ship this)
 #   ./start.sh v8           serve kt_support_demo.html    (previous release)
 #   ./start.sh dev          serve kt_support_v9.html      (multi-file source)
-#   ./start.sh --port 9000  use a specific port
-#   ./start.sh --no-open    don't launch a browser
-#   ./start.sh --build      rebuild the standalone file first, then serve
+#   ./start.sh core         serve the legacy ticket view
+#
+#   ./start.sh rag          THE FULL STACK — installs what is missing, then runs:
+#                             PostgreSQL + pgvector   (docker, port 5433)
+#                             FastAPI RAG API         (uvicorn, port 8001)
+#                             Ollama + a local model  (port 11434)
+#                             the KATS UI in dev mode (port 8000)
+#
+#   ./start.sh install      install/pull everything, start nothing
+#   ./start.sh stop         stop the RAG stack (Postgres container + API)
+#
+#   --port 9000    serve the UI on a specific port
+#   --no-open      don't launch a browser
+#   --build        rebuild the standalone bundle first
+#
+# Environment overrides (all optional, see rag/.env.example):
+#   KATS_LLM_MODEL=gemma4:latest  better reasoning, several minutes/answer on CPU
+#   KATS_EMBED_MODEL=...          embedding model (must match the vector dim)
+#   SKIP_OLLAMA=1                 don't touch Ollama
+#   SKIP_PULL=1                   don't pull models (use whatever is installed)
+#   INSTALL_REQUIREMENTS=0        don't touch the Python venv
+#   SEED_DEMO=0                   don't ingest the demo data
+#   FORCE_SEED=1                  re-ingest even if the store is not empty
 #
 # Why serve instead of double-clicking the file:
 # Safari (and some hardened Chrome policies) block localStorage on file://
@@ -20,6 +40,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
+APP_DIR="$(pwd)"
 
 LANDING_FILE="rax_ticket_support_page.html"
 DEMO_FILE="kt_support_demo_v9.html"
@@ -30,6 +51,32 @@ PAGE="$LANDING_FILE"
 PORT=8000
 OPEN_BROWSER=1
 DO_BUILD=0
+MODE="serve"          # serve | rag | install | stop
+
+# --- RAG stack settings ------------------------------------------------------
+RAG_DIR="${APP_DIR}/rag"
+VENV_DIR="${VENV_DIR:-${APP_DIR}/.venv}"
+API_HOST="${KATS_API_HOST:-127.0.0.1}"
+API_PORT="${KATS_API_PORT:-8001}"
+PG_PORT="${POSTGRES_PORT:-5433}"
+OLLAMA_URL="${OLLAMA_BASE_URL:-http://127.0.0.1:11434}"
+# phi3 by default: 2.2 GB and ~1 minute per grounded answer on CPU, where
+# gemma4 (9.6 GB) takes several. Set KATS_LLM_MODEL=gemma4:latest to trade
+# speed for reasoning.
+LLM_MODEL="${KATS_LLM_MODEL:-phi3}"
+EMBED_MODEL="${KATS_EMBED_MODEL:-embeddinggemma}"
+INSTALL_REQUIREMENTS="${INSTALL_REQUIREMENTS:-1}"
+SKIP_OLLAMA="${SKIP_OLLAMA:-0}"
+SKIP_PULL="${SKIP_PULL:-0}"
+
+# rag/.env overrides the defaults above if it exists.
+if [ -f "${RAG_DIR}/.env" ]; then
+  set -a; . "${RAG_DIR}/.env"; set +a
+  LLM_MODEL="${KATS_LLM_MODEL:-$LLM_MODEL}"
+  EMBED_MODEL="${KATS_EMBED_MODEL:-$EMBED_MODEL}"
+  API_PORT="${KATS_API_PORT:-$API_PORT}"
+  PG_PORT="${POSTGRES_PORT:-$PG_PORT}"
+fi
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -38,26 +85,298 @@ while [ $# -gt 0 ]; do
     kats|--kats)    PAGE="$DEMO_FILE"; shift ;;
     v8|--v8)        PAGE="$DEMO_V8_FILE"; shift ;;
     core|--core)    PAGE="core_ticket_rebuilt.html"; shift ;;
+    rag|--rag)      MODE="rag"; PAGE="$DEV_FILE"; shift ;;
+    install|--install) MODE="install"; shift ;;
+    stop|--stop)    MODE="stop"; shift ;;
     -p|--port)      PORT="${2:-8000}"; shift 2 ;;
     --no-open)      OPEN_BROWSER=0; shift ;;
     -b|--build)     DO_BUILD=1; shift ;;
-    -h|--help)      sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)      sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1  (try --help)" >&2; exit 1 ;;
   esac
 done
 
-# --- optional rebuild -------------------------------------------------------
-if [ "$DO_BUILD" -eq 1 ]; then
-  if ! command -v node >/dev/null 2>&1; then
-    echo "ERROR: --build needs node, which is not installed." >&2
-    exit 1
+say()  { printf '  %s\n' "$*"; }
+step() { printf '\n  \033[1m%s\033[0m\n' "$*"; }
+warn() { printf '  \033[33m! %s\033[0m\n' "$*"; }
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+die()  { printf '\n  \033[31m✗ %s\033[0m\n\n' "$*" >&2; exit 1; }
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# =============================================================================
+# RAG stack
+# =============================================================================
+
+compose() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose -f "${RAG_DIR}/docker-compose.yml" "$@"
+  elif have docker-compose; then
+    docker-compose -f "${RAG_DIR}/docker-compose.yml" "$@"
+  else
+    die "docker compose not found. Install Docker, or run Postgres yourself and set KATS_DATABASE_URL."
   fi
+}
+
+ensure_docker() {
+  have docker || die "docker not found.
+  WSL/Ubuntu:  ./rag/install-docker.sh  (or enable Docker Desktop's WSL integration)
+  Then re-run: ./start.sh rag"
+
+  if ! docker info >/dev/null 2>&1; then
+    say "Docker daemon not responding — trying to start it…"
+    sudo service docker start >/dev/null 2>&1 || true
+    sleep 3
+    docker info >/dev/null 2>&1 || die "Docker daemon is not reachable.
+  Try:  sudo service docker start
+  Or enable WSL integration in Docker Desktop, then re-run ./start.sh rag"
+  fi
+  ok "docker is up"
+}
+
+ensure_postgres() {
+  step "PostgreSQL + pgvector (port ${PG_PORT})"
+  ensure_docker
+  compose up -d
+
+  say "waiting for the database to accept connections…"
+  for i in $(seq 1 60); do
+    if compose exec -T postgres pg_isready -U "${POSTGRES_USER:-kats}" >/dev/null 2>&1; then
+      ok "postgres ready on ${PG_PORT}"
+      return 0
+    fi
+    sleep 1
+  done
+  die "Postgres did not come up. Check:  docker compose -f rag/docker-compose.yml logs postgres"
+}
+
+ensure_python() {
+  [ "$INSTALL_REQUIREMENTS" = "1" ] || { say "skipping python install (INSTALL_REQUIREMENTS=0)"; return 0; }
+  step "Python environment"
+
+  have python3 || die "python3 not found. sudo apt install -y python3 python3-venv python3-pip"
+  if ! python3 -c 'import venv' >/dev/null 2>&1; then
+    die "python3-venv missing. sudo apt install -y python3-venv"
+  fi
+
+  if [ ! -d "$VENV_DIR" ]; then
+    say "creating $VENV_DIR"
+    python3 -m venv "$VENV_DIR"
+  fi
+
+  # Only reinstall when requirements.txt actually changed — a pip run on every
+  # boot is 20 wasted seconds and the single most common reason people stop
+  # using a launcher script.
+  local req="${RAG_DIR}/backend/requirements.txt"
+  local stamp="${VENV_DIR}/.kats-requirements.sha"
+  local now=""
+  if have sha256sum; then now="$(sha256sum "$req" | awk '{print $1}')"; fi
+
+  if [ -n "$now" ] && [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$now" ]; then
+    ok "python packages already current"
+  else
+    say "installing backend requirements…"
+    "${VENV_DIR}/bin/pip" install --quiet --upgrade pip
+    "${VENV_DIR}/bin/pip" install --quiet -r "$req"
+    [ -n "$now" ] && printf '%s' "$now" > "$stamp"
+    ok "python packages installed"
+  fi
+}
+
+ensure_ollama() {
+  [ "$SKIP_OLLAMA" = "1" ] && { say "skipping ollama (SKIP_OLLAMA=1)"; return 0; }
+  step "Ollama + local models"
+
+  if ! have ollama; then
+    warn "ollama is not installed."
+    say "Install it with:  curl -fsSL https://ollama.com/install.sh | sh"
+    say "Continuing — retrieval still works, but chat answers will not."
+    return 0
+  fi
+
+  if ! curl -fsS "${OLLAMA_URL}/api/tags" >/dev/null 2>&1; then
+    say "starting ollama serve in the background…"
+    nohup ollama serve >"${APP_DIR}/ollama.log" 2>&1 &
+    for i in $(seq 1 30); do
+      curl -fsS "${OLLAMA_URL}/api/tags" >/dev/null 2>&1 && break
+      sleep 1
+    done
+  fi
+
+  if ! curl -fsS "${OLLAMA_URL}/api/tags" >/dev/null 2>&1; then
+    warn "ollama did not answer at ${OLLAMA_URL} — see ollama.log"
+    return 0
+  fi
+  ok "ollama is up at ${OLLAMA_URL}"
+
+  [ "$SKIP_PULL" = "1" ] && { say "skipping model pulls (SKIP_PULL=1)"; return 0; }
+
+  local installed
+  installed="$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}')"
+
+  pull_if_missing() {
+    local model="$1" why="$2"
+    if printf '%s\n' "$installed" | grep -qx "$model"; then
+      ok "$model already installed"
+    else
+      say "pulling $model  ($why) — first run only, this can take a few minutes"
+      ollama pull "$model" || warn "could not pull $model — continuing without it"
+    fi
+  }
+
+  # Two models, two jobs. A chat model cannot produce embeddings; the embedder
+  # cannot answer a question. Both are small enough for a CPU laptop.
+  pull_if_missing "$LLM_MODEL"   "generation"
+  pull_if_missing "$EMBED_MODEL" "retrieval embeddings, 768-dim"
+}
+
+start_api() {
+  step "RAG API (port ${API_PORT})"
+
+  if curl -fsS "http://${API_HOST}:${API_PORT}/health" >/dev/null 2>&1; then
+    ok "an API is already listening on ${API_PORT} — reusing it"
+    return 0
+  fi
+
+  export KATS_API_HOST="$API_HOST" KATS_API_PORT="$API_PORT"
+  export KATS_LLM_MODEL="$LLM_MODEL" KATS_EMBED_MODEL="$EMBED_MODEL"
+  export OLLAMA_BASE_URL="$OLLAMA_URL"
+  export KATS_DATABASE_URL="${KATS_DATABASE_URL:-postgresql://${POSTGRES_USER:-kats}:${POSTGRES_PASSWORD:-kats_password}@127.0.0.1:${PG_PORT}/${POSTGRES_DB:-kats_rag}}"
+
+  nohup "${VENV_DIR}/bin/uvicorn" app.main:app \
+      --host "$API_HOST" --port "$API_PORT" \
+      --app-dir "${RAG_DIR}/backend" \
+      >"${APP_DIR}/rag-api.log" 2>&1 &
+  echo $! > "${APP_DIR}/rag-api.pid"
+
+  for i in $(seq 1 45); do
+    if curl -fsS "http://${API_HOST}:${API_PORT}/health" >/dev/null 2>&1; then
+      ok "API ready at http://${API_HOST}:${API_PORT}  (docs: /docs)"
+      return 0
+    fi
+    sleep 1
+  done
+
+  warn "the API did not answer in 45s. Last lines of rag-api.log:"
+  tail -n 20 "${APP_DIR}/rag-api.log" 2>/dev/null | sed 's/^/      /'
+  return 1
+}
+
+seed_demo() {
+  [ "${SEED_DEMO:-1}" = "1" ] || { say "skipping demo ingest (SEED_DEMO=0)"; return 0; }
+  step "Demo data"
+
+  have node || { warn "node not found — skipping demo ingest"; return 0; }
+
+  local health tickets
+  health="$(curl -fsS "http://${API_HOST}:${API_PORT}/health" 2>/dev/null || true)"
+  [ -z "$health" ] && { warn "API not answering — skipping demo ingest"; return 0; }
+
+  tickets="$(printf '%s' "$health" | sed -n 's/.*"tickets":\([0-9]*\).*/\1/p')"
+
+  # Only on an empty store, unless forced. Re-ingesting is harmless (every
+  # write is an upsert on ticket_id) but it re-embeds everything, which is the
+  # slow part, and nobody wants that on every start.
+  if [ "${tickets:-0}" != "0" ] && [ "${FORCE_SEED:-0}" != "1" ]; then
+    ok "store already holds ${tickets} documents — not re-ingesting (FORCE_SEED=1 to redo)"
+    return 0
+  fi
+
+  say "ingesting the KB, the demo tickets and the case history…"
+  if KATS_API_URL="http://${API_HOST}:${API_PORT}" node rag/seed_demo.js; then
+    ok "demo data ingested"
+  else
+    warn "demo ingest reported problems — the chat will still work on whatever landed"
+  fi
+}
+
+stop_stack() {
+  step "Stopping the RAG stack"
+  if [ -f "${APP_DIR}/rag-api.pid" ]; then
+    kill "$(cat "${APP_DIR}/rag-api.pid")" 2>/dev/null && ok "API stopped" || say "API was not running"
+    rm -f "${APP_DIR}/rag-api.pid"
+  fi
+  if [ -d "$RAG_DIR" ] && have docker; then
+    compose down && ok "postgres stopped (data volume kept)"
+  fi
+  echo
+  say "The data volume survives. To wipe it:"
+  say "  docker compose -f rag/docker-compose.yml down -v"
+  echo
+}
+
+print_rag_health() {
+  local health
+  health="$(curl -fsS "http://${API_HOST}:${API_PORT}/health" 2>/dev/null || true)"
+  [ -z "$health" ] && { warn "no /health response"; return 0; }
+
+  # Small enough to read with grep rather than pull in jq.
+  local llm embed_mode embed
+  llm="$(printf '%s' "$health"       | sed -n 's/.*"llm_model":"\([^"]*\)".*/\1/p')"
+  embed="$(printf '%s' "$health"     | sed -n 's/.*"embed_model":"\([^"]*\)".*/\1/p')"
+  embed_mode="$(printf '%s' "$health"| sed -n 's/.*"embed_mode":"\([^"]*\)".*/\1/p')"
+
+  say "generation : ${llm:-unknown}"
+  say "embeddings : ${embed:-unknown} (${embed_mode:-unknown})"
+  if [ "$embed_mode" != "ollama" ]; then
+    warn "running the hash fallback embedder — retrieval is keyword-only."
+    warn "fix it with:  ollama pull ${EMBED_MODEL}   then restart ./start.sh rag"
+  fi
+}
+
+# =============================================================================
+# Modes that exit early
+# =============================================================================
+if [ "$MODE" = "stop" ]; then
+  stop_stack
+  exit 0
+fi
+
+if [ "$MODE" = "install" ]; then
+  [ -d "$RAG_DIR" ] || die "rag/ not found — nothing to install."
+  ensure_docker
+  ensure_python
+  ensure_ollama
+  echo
+  ok "Everything installed. Start it with:  ./start.sh rag"
+  echo
+  exit 0
+fi
+
+# =============================================================================
+# Optional rebuild
+# =============================================================================
+if [ "$DO_BUILD" -eq 1 ]; then
+  have node || die "--build needs node, which is not installed."
   echo "Rebuilding $DEMO_FILE ..."
   node build_demo.js v9
   echo
 fi
 
-# --- sanity check -----------------------------------------------------------
+# =============================================================================
+# The full stack
+# =============================================================================
+if [ "$MODE" = "rag" ]; then
+  [ -d "$RAG_DIR" ] || die "rag/ not found. This checkout has no backend."
+  cat <<'HEAD'
+
+  KATS — bringing up the AI backend
+  =================================
+  postgres + pgvector · FastAPI retrieval · local LLM via Ollama
+  Everything runs on this machine. Nothing leaves it.
+HEAD
+  ensure_postgres
+  ensure_python
+  ensure_ollama
+  start_api || warn "continuing without the API — the UI will run in local-only mode"
+  seed_demo
+  step "Backend summary"
+  print_rag_health
+fi
+
+# =============================================================================
+# Serve the UI
+# =============================================================================
 if [ ! -f "$PAGE" ]; then
   echo "ERROR: $PAGE not found in $(pwd)" >&2
   [ "$PAGE" = "$DEMO_FILE" ] && echo "Hint: run './start.sh --build' to generate it." >&2
@@ -65,20 +384,16 @@ if [ ! -f "$PAGE" ]; then
 fi
 
 if [ "$PAGE" = "$DEV_FILE" ]; then
-  for dep in kb_database.js kt_data.js kt_topology.js kt_pipeline.js kt_intake.js ai_agent.js; do
-    if [ ! -f "$dep" ]; then
-      echo "ERROR: dev mode needs $dep next to $DEV_FILE" >&2
-      exit 1
-    fi
+  for dep in kb_database.js kt_data.js kt_topology.js kt_pipeline.js kt_intake.js \
+             kt_record.js kt_rag.js ai_agent.js; do
+    [ -f "$dep" ] || die "dev mode needs $dep next to $DEV_FILE"
   done
 fi
 
-# --- find a free port -------------------------------------------------------
 port_busy() {
-  if command -v ss >/dev/null 2>&1; then
+  if have ss; then
     ss -ltn 2>/dev/null | grep -q ":$1 "
   else
-    # Fall back to actually trying to bind.
     ! (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
     return $(( ! $? ))
   fi
@@ -87,38 +402,65 @@ port_busy() {
 START_PORT="$PORT"
 while port_busy "$PORT"; do
   PORT=$((PORT + 1))
-  if [ "$PORT" -gt $((START_PORT + 20)) ]; then
-    echo "ERROR: no free port between $START_PORT and $PORT" >&2
-    exit 1
-  fi
+  [ "$PORT" -gt $((START_PORT + 20)) ] && die "no free port between $START_PORT and $PORT"
 done
 [ "$PORT" != "$START_PORT" ] && echo "Port $START_PORT busy, using $PORT instead."
 
 URL="http://localhost:$PORT/$PAGE"
 
-# --- pick a server ----------------------------------------------------------
-if command -v python3 >/dev/null 2>&1; then
+if have python3; then
   SERVE=(python3 -m http.server "$PORT" --bind 127.0.0.1)
-elif command -v npx >/dev/null 2>&1; then
+elif have npx; then
   SERVE=(npx --yes http-server -p "$PORT" -a 127.0.0.1 --silent)
 else
-  echo "ERROR: need python3 or npx to serve. Alternatively just open $PAGE directly:" >&2
-  echo "       $(pwd)/$PAGE" >&2
-  exit 1
+  die "need python3 or npx to serve. Alternatively open $(pwd)/$PAGE directly."
 fi
 
-# --- browser opener (handles WSL, Linux, macOS) -----------------------------
 open_browser() {
   sleep 1
-  if command -v wslview >/dev/null 2>&1;        then wslview "$URL"
-  elif [ -n "${WSL_DISTRO_NAME:-}" ] && command -v explorer.exe >/dev/null 2>&1; then
+  if have wslview;                                        then wslview "$URL"
+  elif [ -n "${WSL_DISTRO_NAME:-}" ] && have explorer.exe; then
     explorer.exe "$URL" >/dev/null 2>&1 || true   # explorer.exe always exits non-zero
-  elif command -v xdg-open >/dev/null 2>&1;     then xdg-open "$URL" >/dev/null 2>&1
-  elif command -v open >/dev/null 2>&1;         then open "$URL"
+  elif have xdg-open;                                     then xdg-open "$URL" >/dev/null 2>&1
+  elif have open;                                         then open "$URL"
   else echo "   (could not auto-open a browser — paste the URL above)"
   fi
 }
 
+if [ "$MODE" = "rag" ]; then
+cat <<BANNER
+
+  KATS — KT AI Ticket Support, with the RAG backend live
+  ======================================================
+  UI          : $URL
+  RAG API     : http://${API_HOST}:${API_PORT}      (Swagger at /docs)
+  PostgreSQL  : 127.0.0.1:${PG_PORT}   db ${POSTGRES_DB:-kats_rag}
+  Ollama      : ${OLLAMA_URL}
+  Logs        : rag-api.log · ollama.log
+
+  Turn it on in the browser (once — it is remembered):
+    Support view -> "Ask the ticket base" tab -> Backend card
+      1. tick "Use the RAG backend"
+      2. endpoint http://${API_HOST}:${API_PORT}
+      3. "Test" should report the models
+      4. "Index all local tickets" to load what is already in this browser
+
+  Then try it:
+    A. Customer ticket view -> "Fill with demo data" -> scroll to
+       "Ticket summary" -> Submit. The confirmation shows what was captured
+       and indexes it.
+    B. Support view -> §0.0 opens on the SAME summary table, then the details.
+    C. "Ask the ticket base" -> ask what has broken before and what fixed it.
+       Every answer opens an Evidence table showing the tickets it read.
+
+  Two evidence types, two questions:
+    intake     = someone else reported this
+    resolution = someone actually fixed this
+
+  Stop the UI with Ctrl-C. Stop the backend with:  ./start.sh stop
+
+BANNER
+else
 cat <<BANNER
 
   OpenStack Cloud - KT Support Ticket (AI Agent PoC)
@@ -132,33 +474,26 @@ cat <<BANNER
      Prove the cause. Fix it forever."
 
   Customer path (the view switch at the top):
-    A. "Customer ticket view" -> "Fill with demo data" -> Submit
-       -> ticket number issued, quality scored, known issue surfaced
-    B. "Open in support view" -> the same ticket, already in the KT form,
-       in the dashboard, in Customer 360 and on the topology map
+    A. "Customer ticket view" -> "Fill with demo data" -> the Ticket summary
+       table at the end gathers every answer -> Submit
+    B. "Open in support view" -> §0.0 opens on that same summary table
 
   Demo path:
     1. Load a demo ticket                -> customer + Problem auto-match
     2. The sticky pipeline bar at the top -> 8 stages, the middle three
-       bracketed as a LOOP with a pass counter; every chip's state is
-       computed from the fields, and NEXT BEST ACTION sits under it
+       bracketed as a LOOP with a pass counter
     3. Clear "Error message" in 5.1      -> PRIORITIZE drops to "1 missing"
-       and CONTAIN goes "blocked by PRIORITIZE" (evidence is a gate)
-    4. Set severity 3 + blast "specific user" + trend "stable"
-                                         -> CONTAIN auto-marks "not required"
-    5. Section 0.1 Customer Topology     -> mind map of every OPEN ticket,
-       customer > site > infra location > issue; "Tree" view is clickable
-    6. "Ticket history" next to Customer -> 3 days / week / month / custom
-    7. Section 10.0 "Plan the pipeline"  -> RECURRENCE of PRB-0001; NARROW
-       and TEST come back already answered, CONFIRM does not
-    8. Section 10.6 Loop log             -> one row per pass around the loop
-    9. Tabs: Customer 360 / Root Cause - Problems
+    4. Section 0.1 Customer Topology     -> mind map of every OPEN ticket
+    5. Section 10.0 "Plan the pipeline"  -> RECURRENCE of PRB-0001
 
   NOTE: the AI Agent is a MOCK. No model is called.
+  For the real thing — PostgreSQL/pgvector retrieval and a local LLM —
+  run:  ./start.sh rag
 
   Ctrl-C to stop.
 
 BANNER
+fi
 
 [ "$OPEN_BROWSER" -eq 1 ] && open_browser &
 

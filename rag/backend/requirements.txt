@@ -1,0 +1,10 @@
+# KATS RAG backend — deliberately small.
+#
+# No SQLAlchemy: the whole data layer is four queries, and the hybrid-search
+# one is hand-written SQL that an ORM would only obscure.
+# No openai / no cloud SDK: everything runs locally through Ollama.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+psycopg[binary,pool]==3.2.3
+httpx==0.28.1
+pydantic==2.10.4
