@@ -40,6 +40,7 @@ kt-ai-support/.env
 kt-ai-support/backend/.env
 rag-api.pid
 kt-api.pid
+*.pid
 __pycache__/
 *.pyc
 
