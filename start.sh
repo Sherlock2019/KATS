@@ -19,7 +19,10 @@
 #
 #   --port 9000    serve the UI on a specific port
 #   --no-open      don't launch a browser
-#   --build        rebuild the standalone bundle first
+#   --build        force a rebuild of the standalone bundle
+#
+# The standalone bundle is rebuilt AUTOMATICALLY whenever a source file is
+# newer than it, so the demo file can never silently serve stale code.
 #
 # Environment overrides (all optional, see rag/.env.example):
 #   KATS_LLM_MODEL=gemma4:latest  better reasoning, several minutes/answer on CPU
@@ -344,13 +347,54 @@ if [ "$MODE" = "install" ]; then
 fi
 
 # =============================================================================
-# Optional rebuild
+# Rebuild the bundle — automatically when it is out of date
+#
+# kt_support_demo_v9.html is a build artifact that is committed to git, so it
+# goes stale the moment a source file is edited without rebuilding. Serving a
+# stale bundle is the worst kind of failure here: the page loads, looks fine,
+# and silently lacks whatever you just added. So the staleness check is not
+# optional and not a warning — it rebuilds.
 # =============================================================================
+BUNDLE_SOURCES="kt_support_v9.html kb_database.js kt_data.js kt_topology.js
+                kt_pipeline.js kt_intake.js kt_record.js kt_rag.js
+                ai_agent.js demo_tickets.js"
+
+bundle_stale() {
+  [ -f "$DEMO_FILE" ] || return 0            # missing counts as stale
+  local bundle_time src_time
+  bundle_time=$(stat -c %Y "$DEMO_FILE" 2>/dev/null || echo 0)
+  for src in $BUNDLE_SOURCES; do
+    [ -f "$src" ] || continue
+    src_time=$(stat -c %Y "$src" 2>/dev/null || echo 0)
+    if [ "$src_time" -gt "$bundle_time" ]; then
+      echo "$src"
+      return 0
+    fi
+  done
+  return 1
+}
+
+rebuild_bundle() {
+  have node || die "the bundle needs rebuilding but node is not installed.
+  Install node, or serve the source instead:  ./start.sh dev"
+  node build_demo.js v9 || die "build_demo.js failed — not serving a half-built bundle."
+}
+
 if [ "$DO_BUILD" -eq 1 ]; then
-  have node || die "--build needs node, which is not installed."
   echo "Rebuilding $DEMO_FILE ..."
-  node build_demo.js v9
+  rebuild_bundle
   echo
+elif [ "$PAGE" = "$DEMO_FILE" ] || [ "$PAGE" = "$LANDING_FILE" ]; then
+  # The landing page links to the bundle, so it needs a current one too.
+  if newer=$(bundle_stale); then
+    if [ -f "$DEMO_FILE" ]; then
+      echo "  $DEMO_FILE is older than $newer — rebuilding."
+    else
+      echo "  $DEMO_FILE does not exist yet — building it."
+    fi
+    rebuild_bundle
+    echo
+  fi
 fi
 
 # =============================================================================
