@@ -8878,6 +8878,98 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
 
     .ai-note { font-size: .8rem; color: var(--bs-secondary-color) }
 
+    /* ===== iOS-style segmented tabs =====
+       Bootstrap's .nav-tabs draws a hairline bottom border and a notched
+       active tab. At seven tabs that reads as a row of blue links on white —
+       there is no visible "you are here", and telling them apart means
+       reading every label.
+
+       This is a segmented control instead: one rounded track, the active
+       segment lifted onto its own pill, and a per-tab accent so they are
+       distinguished by colour before anyone reads a word.
+
+       Each accent is declared as a pair — the colour and a low-alpha wash of
+       it. rgba rather than color-mix() so it works everywhere, and the wash
+       reads correctly on both the light and dark track. */
+    .kt-tabs {
+      --tab: var(--bs-secondary-color);
+      --tab-soft: transparent;
+
+      border: 0;
+      gap: .25rem;
+      padding: .3rem;
+      border-radius: .85rem;
+      background: var(--bs-secondary-bg);
+      /* Seven tabs must wrap onto a second row, never scroll off the side. */
+      flex-wrap: wrap;
+    }
+
+    .kt-tabs .nav-item { flex: 1 1 auto }
+
+    .kt-tabs .nav-link {
+      width: 100%;
+      border: 0;
+      border-radius: .65rem;
+      padding: .42rem .7rem;
+      font-size: .84rem;
+      font-weight: 600;
+      line-height: 1.25;
+      white-space: nowrap;
+      text-align: center;
+      color: var(--bs-secondary-color);
+      background: transparent;
+      transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+    }
+
+    .kt-tabs .nav-link i { color: var(--tab); opacity: .8 }
+
+    .kt-tabs .nav-link:hover,
+    .kt-tabs .nav-link:focus-visible {
+      color: var(--tab);
+      background: var(--tab-soft);
+    }
+
+    /* The lifted pill. The inset ring is what makes the active tab legible
+       on a dark theme, where a white pill alone would be the whole signal. */
+    .kt-tabs .nav-link.active {
+      color: var(--tab);
+      background: var(--bs-body-bg);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .18), inset 0 0 0 1.5px var(--tab);
+    }
+    .kt-tabs .nav-link.active i { opacity: 1 }
+
+    .kt-tabs .nav-link .badge {
+      font-size: .68rem;
+      font-weight: 700;
+      padding: .18em .45em;
+      border-radius: .5rem;
+      vertical-align: .08em;
+    }
+
+    .kt-tabs .nav-link[data-tab="blue"]   { --tab: #0d6efd; --tab-soft: rgba(13, 110, 253, .12) }
+    .kt-tabs .nav-link[data-tab="red"]    { --tab: #dc3545; --tab-soft: rgba(220, 53, 69, .12) }
+    .kt-tabs .nav-link[data-tab="green"]  { --tab: #198754; --tab-soft: rgba(25, 135, 84, .12) }
+    .kt-tabs .nav-link[data-tab="purple"] { --tab: #6f42c1; --tab-soft: rgba(111, 66, 193, .12) }
+    .kt-tabs .nav-link[data-tab="orange"] { --tab: #fd7e14; --tab-soft: rgba(253, 126, 20, .14) }
+    .kt-tabs .nav-link[data-tab="teal"]   { --tab: #0aa2c0; --tab-soft: rgba(10, 162, 192, .14) }
+    .kt-tabs .nav-link[data-tab="pink"]   { --tab: #d63384; --tab-soft: rgba(214, 51, 132, .12) }
+
+    /* Dark theme: the accents above are tuned for white and go muddy on a
+       dark track, so lift each one. */
+    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="blue"]   { --tab: #6ea8fe }
+    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="red"]    { --tab: #ea868f }
+    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="green"]  { --tab: #75b798 }
+    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="purple"] { --tab: #a98eda }
+    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="orange"] { --tab: #feb272 }
+    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="teal"]   { --tab: #6edff6 }
+    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="pink"]   { --tab: #e685b5 }
+
+    @media (max-width: 575.98px) {
+      .kt-tabs .nav-link { font-size: .78rem; padding: .38rem .5rem }
+      /* Labels are long; on a phone the icon and badge carry the meaning. */
+      .kt-tabs .nav-link .tab-label { display: none }
+    }
+
     /* The streaming caret in the RAG chat. A local model on CPU writes at
        reading speed, so a blinking cursor reads as "still going" rather than
        "stuck" — which is exactly the question the reader has. */
@@ -9607,16 +9699,26 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
 
       <!-- Customer sub-tabs: the same ticket views the support side has,
            scoped to this account. -->
-      <ul class="nav nav-tabs mb-3" role="tablist">
-        <li class="nav-item"><a class="nav-link active" href="#cxRaiseTab" data-bs-toggle="tab"
-          onclick="cxTab('raise')"><i class="fa-solid fa-pen-to-square"></i> Raise a ticket</a></li>
-        <li class="nav-item"><a class="nav-link" href="#cxMineTab" data-bs-toggle="tab"
-          onclick="cxTab('mine')"><i class="fa-solid fa-list-check"></i> My tickets
+      <!-- Same segmented control as the support view, so the two sides of the
+           app do not look like two different products. -->
+      <ul class="nav nav-tabs kt-tabs mb-3" role="tablist">
+        <li class="nav-item"><a class="nav-link active" data-tab="red" href="#cxRaiseTab"
+          data-bs-toggle="tab" onclick="cxTab('raise')">
+          <i class="fa-solid fa-pen-to-square"></i>
+          <span class="tab-label">Raise a ticket</span></a></li>
+        <li class="nav-item"><a class="nav-link" data-tab="blue" href="#cxMineTab"
+          data-bs-toggle="tab" onclick="cxTab('mine')">
+          <i class="fa-solid fa-list-check"></i>
+          <span class="tab-label">My tickets</span>
           <span class="badge bg-danger ms-1" id="cxOpenBadge">0</span></a></li>
-        <li class="nav-item"><a class="nav-link" href="#cxHistTab" data-bs-toggle="tab"
-          onclick="cxTab('history')"><i class="fa-solid fa-clock-rotate-left"></i> History</a></li>
-        <li class="nav-item"><a class="nav-link" href="#cxMapTab" data-bs-toggle="tab"
-          onclick="cxTab('map')"><i class="fa-solid fa-sitemap"></i> Service map</a></li>
+        <li class="nav-item"><a class="nav-link" data-tab="purple" href="#cxHistTab"
+          data-bs-toggle="tab" onclick="cxTab('history')">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span class="tab-label">History</span></a></li>
+        <li class="nav-item"><a class="nav-link" data-tab="teal" href="#cxMapTab"
+          data-bs-toggle="tab" onclick="cxTab('map')">
+          <i class="fa-solid fa-sitemap"></i>
+          <span class="tab-label">Service map</span></a></li>
       </ul>
 
       <div class="tab-content">
@@ -9832,42 +9934,61 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
     <div id="supportView">
 
     <!-- ======= TABS ======= -->
-    <ul class="nav nav-tabs mb-2" role="tablist">
+    <!-- Every tab carries an icon and an accent. Seven blue text links with a
+         hairline under one of them is not a navigation bar you can read at a
+         glance mid-incident. -->
+    <ul class="nav nav-tabs kt-tabs mb-3" role="tablist">
       <li class="nav-item">
-        <a class="nav-link active" data-bs-toggle="tab" href="#formTab">Ticket status</a>
+        <a class="nav-link active" data-tab="blue" data-bs-toggle="tab" href="#formTab">
+          <i class="fa-solid fa-clipboard-check"></i>
+          <span class="tab-label">Ticket status</span>
+        </a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#chatTab">Escalations and Comments
+        <a class="nav-link" data-tab="red" data-bs-toggle="tab" href="#chatTab">
+          <i class="fa-solid fa-comment-dots"></i>
+          <span class="tab-label">Escalations &amp; Comments</span>
           <span id="chatBadge" class="badge bg-danger ms-1">0</span>
         </a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#resTab">Resolution &amp; KB
-          <span id="resBadge" class="badge bg-primary ms-1">0</span>
+        <a class="nav-link" data-tab="green" data-bs-toggle="tab" href="#resTab">
+          <i class="fa-solid fa-book-medical"></i>
+          <span class="tab-label">Resolution &amp; KB</span>
+          <span id="resBadge" class="badge bg-success ms-1">0</span>
         </a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#customerTab" onclick="renderCustomer360()">
-          <i class="fa-solid fa-building"></i> Customer 360
+        <a class="nav-link" data-tab="purple" data-bs-toggle="tab" href="#customerTab"
+           onclick="renderCustomer360()">
+          <i class="fa-solid fa-building"></i>
+          <span class="tab-label">Customer 360</span>
         </a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#problemTab" onclick="renderProblemRegister()">
-          <i class="fa-solid fa-bullseye"></i> Root Cause / Problems
+        <a class="nav-link" data-tab="pink" data-bs-toggle="tab" href="#problemTab"
+           onclick="renderProblemRegister()">
+          <i class="fa-solid fa-bullseye"></i>
+          <span class="tab-label">Root Cause / Problems</span>
           <span id="problemBadge" class="badge bg-danger ms-1">0</span>
         </a>
       </li>
       <li class="nav-item">
-        <a class="nav-link text-warning fw-bold" data-bs-toggle="tab" href="#allEscTab"
+        <!-- text-warning removed: yellow on the active white pill was
+             unreadable. The orange accent carries the same urgency. -->
+        <a class="nav-link" data-tab="orange" data-bs-toggle="tab" href="#allEscTab"
            onclick="loadAllEscalations()">
-          <i class="fa-solid fa-fire"></i> Escalations
+          <i class="fa-solid fa-fire"></i>
+          <span class="tab-label">Escalations</span>
         </a>
       </li>
       <!-- The RAG chat. Support-only: it can read every tenant's tickets,
            which is exactly why the customer view has no route to it. -->
       <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#ragTab" onclick="ragOnOpen()">
-          <i class="fa-solid fa-comments"></i> Ask the ticket base
+        <a class="nav-link" data-tab="teal" data-bs-toggle="tab" href="#ragTab"
+           onclick="ragOnOpen()">
+          <i class="fa-solid fa-comments"></i>
+          <span class="tab-label">Ask the ticket base</span>
           <span id="ragBadge" class="badge bg-secondary ms-1">off</span>
         </a>
       </li>
