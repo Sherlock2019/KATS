@@ -8878,96 +8878,134 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
 
     .ai-note { font-size: .8rem; color: var(--bs-secondary-color) }
 
-    /* ===== iOS-style segmented tabs =====
-       Bootstrap's .nav-tabs draws a hairline bottom border and a notched
-       active tab. At seven tabs that reads as a row of blue links on white —
-       there is no visible "you are here", and telling them apart means
-       reading every label.
+    /* ===== iOS-palette tabs, solid fill =====
+       Bootstrap's .nav-tabs draws a hairline under one of seven blue links.
+       Mid-incident there is no visible "you are here" and telling the tabs
+       apart means reading every label.
 
-       This is a segmented control instead: one rounded track, the active
-       segment lifted onto its own pill, and a per-tab accent so they are
-       distinguished by colour before anyone reads a word.
+       These are full-bleed colour chips instead: every tab is solid, white
+       bold text, sized to an iOS touch target. Colour identifies the tab
+       before a word is read; the active one is identified by lift, a white
+       ring and full saturation rather than by being the only coloured one.
 
-       Each accent is declared as a pair — the colour and a low-alpha wash of
-       it. rgba rather than color-mix() so it works everywhere, and the wash
-       reads correctly on both the light and dark track. */
+       Palette is Apple's system colours, three of them deepened. Stock
+       systemGreen (#34C759), systemTeal (#30B0C7) and systemOrange (#FF9500)
+       measure 2.0-2.2:1 against white text, which is unreadable. Deepened
+       they clear 3.2:1 and stay recognisably the same hues. Measured, white
+       on each fill:
+
+         purple 5.65   blue 4.02   pink 3.65   red 3.55
+         teal   3.34   orange 3.26  green 3.21
+
+       These are bold 15px chips, so 3:1 is the working floor rather than
+       WCAG's 4.5:1 for normal text. Deepening further starts turning orange
+       into brown and green into forest.
+
+       There is deliberately no dark-theme palette. iOS brightens its system
+       colours on dark, but those variants are meant for coloured text ON a
+       dark background — as fills under white text they measure ~2:1, worse
+       than what they replace. A solid chip is its own surface, so the same
+       fills serve both themes; only the inactive opacity changes. */
     .kt-tabs {
-      --tab: var(--bs-secondary-color);
-      --tab-soft: transparent;
-
+      --tab: #8E8E93;                       /* systemGray */
       border: 0;
-      gap: .25rem;
-      padding: .3rem;
-      border-radius: .85rem;
-      background: var(--bs-secondary-bg);
-      /* Seven tabs must wrap onto a second row, never scroll off the side. */
+      gap: .4rem;
+      padding: .35rem;
+      border-radius: 1rem;
+      background: transparent;
+      /* Seven tabs wrap onto a second row; they must never scroll off. */
       flex-wrap: wrap;
     }
 
     .kt-tabs .nav-item { flex: 1 1 auto }
 
     .kt-tabs .nav-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
       width: 100%;
+      min-height: 44px;                     /* iOS minimum touch target */
       border: 0;
-      border-radius: .65rem;
-      padding: .42rem .7rem;
-      font-size: .84rem;
-      font-weight: 600;
-      line-height: 1.25;
+      border-radius: .8rem;
+      padding: .55rem .9rem;
+      font-size: .92rem;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -.01em;
       white-space: nowrap;
       text-align: center;
-      color: var(--bs-secondary-color);
-      background: transparent;
-      transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+
+      color: #fff;
+      background: var(--tab);
+      /* Slightly held back so the active tab still reads as the loudest
+         thing in the row without the others going grey. */
+      opacity: .82;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .14);
+      transition: opacity .15s ease, transform .15s ease, box-shadow .15s ease;
     }
 
-    .kt-tabs .nav-link i { color: var(--tab); opacity: .8 }
+    .kt-tabs .nav-link i { color: #fff; font-size: 1rem }
 
     .kt-tabs .nav-link:hover,
     .kt-tabs .nav-link:focus-visible {
-      color: var(--tab);
-      background: var(--tab-soft);
+      color: #fff;
+      opacity: .95;
+      transform: translateY(-1px);
     }
 
-    /* The lifted pill. The inset ring is what makes the active tab legible
-       on a dark theme, where a white pill alone would be the whole signal. */
     .kt-tabs .nav-link.active {
-      color: var(--tab);
-      background: var(--bs-body-bg);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, .18), inset 0 0 0 1.5px var(--tab);
+      color: #fff;
+      opacity: 1;
+      transform: translateY(-1px);
+      /* White ring + a coloured glow: the ring separates it from its
+         neighbours, the glow is what carries at a glance. */
+      box-shadow: 0 0 0 2.5px var(--bs-body-bg),
+                  0 0 0 4.5px var(--tab),
+                  0 4px 10px rgba(0, 0, 0, .22);
     }
-    .kt-tabs .nav-link.active i { opacity: 1 }
 
+    /* Bootstrap's contextual badge colours all fight a coloured chip, so
+       badges here are a translucent white pill instead — one rule, reads on
+       every one of the seven. */
     .kt-tabs .nav-link .badge {
-      font-size: .68rem;
-      font-weight: 700;
-      padding: .18em .45em;
-      border-radius: .5rem;
-      vertical-align: .08em;
+      font-size: .7rem;
+      font-weight: 800;
+      padding: .2em .5em;
+      border-radius: 1rem;
+      color: #fff !important;
+      background: rgba(255, 255, 255, .3) !important;
+      backdrop-filter: blur(2px);
     }
 
-    .kt-tabs .nav-link[data-tab="blue"]   { --tab: #0d6efd; --tab-soft: rgba(13, 110, 253, .12) }
-    .kt-tabs .nav-link[data-tab="red"]    { --tab: #dc3545; --tab-soft: rgba(220, 53, 69, .12) }
-    .kt-tabs .nav-link[data-tab="green"]  { --tab: #198754; --tab-soft: rgba(25, 135, 84, .12) }
-    .kt-tabs .nav-link[data-tab="purple"] { --tab: #6f42c1; --tab-soft: rgba(111, 66, 193, .12) }
-    .kt-tabs .nav-link[data-tab="orange"] { --tab: #fd7e14; --tab-soft: rgba(253, 126, 20, .14) }
-    .kt-tabs .nav-link[data-tab="teal"]   { --tab: #0aa2c0; --tab-soft: rgba(10, 162, 192, .14) }
-    .kt-tabs .nav-link[data-tab="pink"]   { --tab: #d63384; --tab-soft: rgba(214, 51, 132, .12) }
+    /* Apple system colours, deepened where white text needs it.
+       Contrast against white is in the block comment above. */
+    .kt-tabs .nav-link[data-tab="blue"]   { --tab: #007AFF }  /* systemBlue           */
+    .kt-tabs .nav-link[data-tab="red"]    { --tab: #FF3B30 }  /* systemRed            */
+    .kt-tabs .nav-link[data-tab="green"]  { --tab: #1DA54B }  /* systemGreen, deeper  */
+    .kt-tabs .nav-link[data-tab="purple"] { --tab: #5856D6 }  /* systemIndigo         */
+    .kt-tabs .nav-link[data-tab="orange"] { --tab: #D97400 }  /* systemOrange, deeper */
+    .kt-tabs .nav-link[data-tab="teal"]   { --tab: #1E9AAF }  /* systemTeal, deeper   */
+    .kt-tabs .nav-link[data-tab="pink"]   { --tab: #FF2D55 }  /* systemPink           */
 
-    /* Dark theme: the accents above are tuned for white and go muddy on a
-       dark track, so lift each one. */
-    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="blue"]   { --tab: #6ea8fe }
-    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="red"]    { --tab: #ea868f }
-    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="green"]  { --tab: #75b798 }
-    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="purple"] { --tab: #a98eda }
-    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="orange"] { --tab: #feb272 }
-    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="teal"]   { --tab: #6edff6 }
-    [data-bs-theme="dark"] .kt-tabs .nav-link[data-tab="pink"]   { --tab: #e685b5 }
+    /* Dark theme keeps the same fills — see the comment above. A dimmed chip
+       disappears against a dark page, so only the resting opacity lifts. */
+    [data-bs-theme="dark"] .kt-tabs .nav-link { opacity: .9 }
 
+    @media (max-width: 991.98px) {
+      .kt-tabs .nav-link { font-size: .85rem; padding: .5rem .6rem }
+    }
     @media (max-width: 575.98px) {
-      .kt-tabs .nav-link { font-size: .78rem; padding: .38rem .5rem }
-      /* Labels are long; on a phone the icon and badge carry the meaning. */
+      /* Labels are long; on a phone the icon and badge carry the meaning
+         and the chips stay square and thumb-sized. */
+      .kt-tabs .nav-link { padding: .55rem; font-size: .8rem }
       .kt-tabs .nav-link .tab-label { display: none }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .kt-tabs .nav-link { transition: none }
+      .kt-tabs .nav-link:hover,
+      .kt-tabs .nav-link.active { transform: none }
     }
 
     /* The streaming caret in the RAG chat. A local model on CPU writes at
