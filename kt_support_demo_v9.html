@@ -9894,54 +9894,6 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
           <div id="nextBestAction"></div>
         </div>
 
-        <!-- ===== §0.0 TICKET SUMMARY =====================================
-             The support funnel opens on the SAME table the customer closed
-             theirs with — same row list, same order, from kt_record.js.
-             Support reads the report once, whole, before touching a field.
-
-             It is collapsed into a <details> rather than pinned open because
-             an engineer on their fourth pass around the loop does not need to
-             re-read the intake; it opens by default for the first look. -->
-        <details class="mb-2" id="ktSummaryBlock" open>
-          <summary class="section-header pri-3 text-white p-2 rounded" style="cursor:pointer">
-            <i class="fa-solid fa-table-list"></i> 0.0 Ticket summary — as reported
-            <span class="ai-note ms-2 text-white-50" id="ktSummaryCount"></span>
-          </summary>
-          <div class="border rounded-bottom p-2">
-            <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
-              <div class="btn-group btn-group-sm" role="group">
-                <button type="button" class="btn btn-outline-primary active" id="ktSummaryScopeCust"
-                        onclick="setSummaryScope('customer')">As reported</button>
-                <button type="button" class="btn btn-outline-primary" id="ktSummaryScopeFull"
-                        onclick="setSummaryScope('full')">+ support findings</button>
-              </div>
-              <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="ktSummaryAll" checked
-                       onchange="renderTicketSummary()">
-                <label class="form-check-label ai-note" for="ktSummaryAll">show gaps</label>
-              </div>
-              <button class="btn btn-outline-secondary btn-sm py-0" type="button"
-                      onclick="renderTicketSummary()">
-                <i class="fa-solid fa-rotate"></i> Refresh
-              </button>
-              <button class="btn btn-outline-secondary btn-sm py-0" type="button"
-                      onclick="copyTicketSummary()">
-                <i class="fa-solid fa-copy"></i> Copy
-              </button>
-              <button class="btn btn-outline-primary btn-sm py-0" type="button"
-                      onclick="ragIngestCurrentTicket()" id="btnRagPush">
-                <i class="fa-solid fa-database"></i> Index for retrieval
-              </button>
-              <span class="ai-note ms-auto" id="ktSummaryRagNote"></span>
-            </div>
-            <div class="ai-note mb-2">
-              Derived from the sections below — it cannot drift out of step with them.
-              The <i class="fa-solid fa-key"></i> rows are the ones that drive matching.
-            </div>
-            <div class="table-responsive" id="ktSummary" style="max-height:520px;overflow:auto"></div>
-          </div>
-        </details>
-
         <!-- 0. Basic -->
         <div class="section-header pri-3 text-white p-2 rounded">
           <i class="fa-solid fa-info-circle"></i> 0. Basic Ticket Information
@@ -10179,6 +10131,58 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
         </div>
         <div id="triagePanel"></div>
         <div class="step-comments" data-step="0. Basic Ticket Information"></div>
+
+        <!-- ================= 0.3 TICKET SUMMARY =====================
+             The same row list the customer funnel ends on, from
+             kt_record.js — support reads the report once, whole, before
+             working the sections below.
+
+             Written as a normal section-header + .kt-body pair, NOT as a
+             <details>/<summary>: wrapSections() moves a header's next
+             siblings into a body div and recolor() overwrites a header's
+             entire className, so a <summary class="section-header"> gets
+             taken apart by both. Giving it a .kt-body sibling up front makes
+             wrapSections() skip it, and recolor() then bands it red, which
+             is right — this is customer input. -->
+        <div class="section-header pri-3 text-white p-2 rounded">
+          <i class="fa-solid fa-table-list"></i> 0.3 Ticket Summary — everything reported, in one table
+          <span class="ai-note ms-2 text-white-50" id="ktSummaryCount"></span>
+        </div>
+        <div class="kt-body for-customer">
+          <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
+            <div class="btn-group btn-group-sm" role="group">
+              <button type="button" class="btn btn-outline-primary active" id="ktSummaryScopeCust"
+                      onclick="setSummaryScope('customer')">As reported</button>
+              <button type="button" class="btn btn-outline-primary" id="ktSummaryScopeFull"
+                      onclick="setSummaryScope('full')">+ support findings</button>
+            </div>
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" id="ktSummaryAll" checked
+                     onchange="renderTicketSummary()">
+              <label class="form-check-label ai-note" for="ktSummaryAll">show gaps</label>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm py-0" type="button"
+                    onclick="renderTicketSummary()">
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+            <button class="btn btn-outline-secondary btn-sm py-0" type="button"
+                    onclick="copyTicketSummary()">
+              <i class="fa-solid fa-copy"></i> Copy
+            </button>
+            <button class="btn btn-outline-primary btn-sm py-0" type="button"
+                    onclick="ragIngestCurrentTicket()" id="btnRagPush">
+              <i class="fa-solid fa-database"></i> Index for retrieval
+            </button>
+            <span class="ai-note ms-auto" id="ktSummaryRagNote"></span>
+          </div>
+          <div class="ai-note mb-2">
+            Derived from the sections below, so it cannot drift out of step with them.
+            The <i class="fa-solid fa-key"></i> rows are the ones that drive matching against
+            past tickets. Blank rows are shown on purpose — a missing
+            <em>"what is NOT affected"</em> is itself information.
+          </div>
+          <div class="table-responsive" id="ktSummary" style="max-height:560px;overflow:auto"></div>
+        </div>
 
         <!-- ================= 1. KT Problem Analysis ================= -->
         <div class="section-header pri-3 text-white p-2 rounded">
