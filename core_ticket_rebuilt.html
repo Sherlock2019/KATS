@@ -171,7 +171,15 @@ table.grid tfoot td{font-weight:800;background:var(--supp-soft)}
       <a href="#">Rack</a><a href="#">CORE</a><a href="#">Departments</a>
       <a href="#">Churn Forecasts</a><a href="#">Reports</a><a href="#">History</a>
       <a href="#">Account</a><a href="#">Ticket</a>
-      <a href="#kt" class="cta">Open in KATS →</a>
+      <!-- The whole point of this page is the comparison, so this opens the
+           KATS demo in a new tab: the reader flips between the two rather
+           than navigating away from the "before" and losing it.
+
+           Relative, so it works identically opened from file:// and served
+           over http://localhost by ./start.sh. -->
+      <a href="kt_support_demo_v9.html" target="_blank" rel="noopener"
+         class="cta" title="Open the same ticket in KATS — KT intake, pipeline and KARL">
+         Open in KATS →</a>
     </nav>
   </div>
 
