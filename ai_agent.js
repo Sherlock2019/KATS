@@ -850,9 +850,57 @@
         why: p.status + ', seen ' + p.recurrence_count + '×'
       }));
 
+    /* Per-environment read.
+       The fleet score is an average, and an average is exactly the wrong
+       shape for this question: one environment at 45 and two at 95 reports
+       as "78, degraded" and nobody knows where to look. Diagnose each
+       environment separately and lead the headline with the worst. */
+    const envs = global.Platforms ? global.Platforms.diagnose(range) : [];
+    r.platforms = envs;
+    const scored = envs.filter(e => e.score != null);
+    const worstEnv = scored[0];
+
+    if (worstEnv && worstEnv.band !== 'healthy') {
+      r.headline = worstEnv.meta.label + ' is the environment to look at — ' +
+        worstEnv.score + '/100 (' + worstEnv.band + '). Fleet health ' + h.score + '/100 over the ' +
+        (global.Analytics.RANGES[range] || {}).label.toLowerCase() + '.';
+      r.verdict = worstEnv.band === 'degraded' ? 'infra_degraded' : 'infra_at_risk';
+    }
+
     r.reasoning = h.factors.length
       ? h.factors.map(f => '−' + f.pts + ' pts: ' + f.why)
       : ['No score deductions — all monitored indicators are inside target.'];
+
+    scored.forEach(e => {
+      r.reasoning.push(e.meta.label + ' ' + e.score + '/100 (' + e.band + '): ' + e.summary);
+      r.evidence.push({
+        type: 'platform', id: e.meta.label,
+        label: e.score + '/100 · ' + e.counts.total + ' case(s), ' + e.counts.open + ' open' +
+               (e.pressure.value != null
+                 ? ' · peak ' + e.pressure.hottest + ' ' + e.pressure.value + '%'
+                 : ''),
+        why: e.driven_by === 'both' ? 'incident load and resource pressure together'
+           : e.driven_by === 'telemetry' ? 'resource pressure only — capacity, not support'
+           : e.driven_by === 'incidents' ? 'incident load only — resources have headroom'
+           : 'inside target on every indicator'
+      });
+    });
+
+    const unmapped = envs.find(e => e.key === 'unassigned');
+    if (unmapped) {
+      r.reasoning.push('Caveat: ' + unmapped.counts.total + ' case(s) sit on components that are ' +
+        'not mapped to any environment, so the three per-environment totals do not sum to the ' +
+        'fleet total. Those cases are excluded rather than guessed at.');
+    }
+
+    /* Utilisation is demo telemetry in this build. Saying so inside the
+       diagnostic itself — not only in the UI — keeps the caveat attached to
+       the finding when someone copies the text into a report. */
+    if (scored.some(e => e.telemetry && !e.telemetry.measured)) {
+      r.reasoning.push('Resource utilisation figures come from the monitoring feed stub ' +
+        '(demo values). Incident counts, MTTR and severities are read from the real case store.');
+    }
+
     r.reasoning.push('Top components: ' + comps.map(x => x.key + ' (' + x.count + ')').join(', ') + '.');
     r.reasoning.push('Most affected customers: ' + custs.map(x => x.key + ' (' + x.count + ')').join(', ') + '.');
 
@@ -862,6 +910,30 @@
 
     if (c.p1_open > 0) act('Review the ' + c.p1_open + ' open P1 incident(s) before anything else',
       'Open P1s dominate both customer perception and the health score', 'P1 count trending to zero', 30);
+
+    /* Environment-specific actions, split by what actually moved the score.
+       A capacity problem and an incident problem go to different teams. */
+    scored.filter(e => e.band !== 'healthy').forEach(e => {
+      if (e.driven_by === 'telemetry') {
+        act('Raise capacity on ' + e.meta.label + ' — ' + e.pressure.hottest + ' at ' + e.pressure.value + '%',
+          'No unusual incident load on this environment; the constraint is headroom, so support ' +
+          'work will not move it', e.pressure.hottest + ' back under ' +
+          (global.Platforms ? global.Platforms.PRESSURE.warn : 75) + '%', 120, 'Change window required');
+      } else if (e.driven_by === 'incidents') {
+        const top = e.components[0];
+        act('Work the incident backlog on ' + e.meta.label +
+            (top ? ' — starting with ' + top.key + ' (' + top.count + ' case(s))' : ''),
+          'Resources have headroom here, so this is a fault-handling problem rather than a ' +
+          'capacity one', e.meta.label + ' score back above 80', 90);
+      } else if (e.driven_by === 'both') {
+        act('Test whether ' + e.pressure.hottest + ' pressure on ' + e.meta.label +
+            ' is causing its incidents',
+          'Utilisation and failure rate are elevated together — treating them as two separate ' +
+          'problems usually means fixing neither',
+          'Either the correlation is confirmed and one fix closes both, or they are ruled ' +
+          'independent and split', 60);
+      }
+    });
     if (comps[0] && comps[0].count > 3) act('Run a component review on ' + comps[0].key + ' — ' + comps[0].count + ' cases this period',
       'A single component concentrating failures usually indicates one unfixed underlying Problem, not many separate faults',
       'Cases consolidate into one or two Problem records', 60);

@@ -408,8 +408,8 @@ fi
 # optional and not a warning — it rebuilds.
 # =============================================================================
 BUNDLE_SOURCES="kt_support_v9.html kb_database.js kt_data.js kt_topology.js
-                kt_pipeline.js kt_intake.js kt_record.js kt_rag.js
-                ai_agent.js demo_tickets.js"
+                kt_platform.js kt_pipeline.js kt_intake.js kt_record.js
+                kt_rag.js ai_agent.js demo_tickets.js"
 
 bundle_stale() {
   [ -f "$DEMO_FILE" ] || return 0            # missing counts as stale
@@ -512,8 +512,8 @@ if [ ! -f "$PAGE" ]; then
 fi
 
 if [ "$PAGE" = "$DEV_FILE" ]; then
-  for dep in kb_database.js kt_data.js kt_topology.js kt_pipeline.js kt_intake.js \
-             kt_record.js kt_rag.js ai_agent.js; do
+  for dep in kb_database.js kt_data.js kt_topology.js kt_platform.js \
+             kt_pipeline.js kt_intake.js kt_record.js kt_rag.js ai_agent.js; do
     [ -f "$dep" ] || die "dev mode needs $dep next to $DEV_FILE"
   done
 fi

@@ -3595,7 +3595,22 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
     ['controller-os', 'availability', 'human-error', null, 'KB-2025-0012', 'API 5xx burst during patching', 'HTTP 500 Internal Server Error haproxy server is DOWN'],
     ['octavia', 'networking', 'unknown', null, null, 'Load balancer listener slow to provision', 'listener stuck in PENDING_UPDATE provisioning_status'],
     ['glance', 'image-guest', 'config-drift', null, null, 'Image upload checksum mismatch', 'image upload failed checksum mismatch'],
-    ['mysql-galera', 'availability', 'third-party', null, null, 'Galera node desync under write load', 'wsrep_local_recv_queue growing node desynced']
+    ['mysql-galera', 'availability', 'third-party', null, null, 'Galera node desync under write load', 'wsrep_local_recv_queue growing node desynced'],
+
+    /* Flex AI. The accelerator estate fails differently from the IaaS fabric —
+       its cases cluster on memory and scheduling rather than on networking —
+       which is exactly why it deserves its own health gauge instead of being
+       averaged into Flex. */
+    ['gpu-node', 'compute', 'hardware-fault', null, 'KB-2025-0021', 'GPU falls off the bus mid-job', 'NVRM: Xid 79 GPU has fallen off the bus'],
+    ['gpu-node', 'compute', 'hardware-fault', null, 'KB-2025-0024', 'Uncorrectable ECC error retires a GPU', 'NVRM: Xid 48 double-bit ECC error; row remap pending, GPU marked unhealthy'],
+    ['gpu-node', 'compute', 'capacity', null, 'KB-2025-0025', 'Thermal slowdown caps training clocks', 'nvidia-smi: SW Thermal Slowdown Active; clocks capped at 810 MHz, GPU temp 88C'],
+    ['gpu-scheduler', 'compute', 'capacity', 'PRB-0007', 'KB-2025-0022', 'Training pods pending, no allocatable GPU', '0/12 nodes are available: 12 Insufficient nvidia.com/gpu'],
+    ['gpu-scheduler', 'compute', 'capacity', 'PRB-0007', null, 'GPU queue saturated under batch submission', 'DCGM_FI_DEV_GPU_UTIL 100% sustained; scheduler queue depth 47, oldest pending 68m'],
+    ['gpu-fabric', 'networking', 'hardware-fault', null, 'KB-2025-0026', 'NVLink error stalls collective operations', 'NCCL WARN NET/IB: got completion with error 12; NCCL timeout in ncclAllReduce'],
+    ['gpu-driver', 'compute', 'config-drift', null, 'KB-2025-0027', 'Driver/CUDA mismatch after node reboot', 'CUDA driver version is insufficient for CUDA runtime version; nvidia-smi has failed'],
+    ['model-serving', 'availability', 'capacity', 'PRB-0007', 'KB-2025-0023', 'Inference OOM under concurrent load', 'CUDA out of memory. Tried to allocate 2.00 GiB'],
+    ['inference-gateway', 'availability', 'config-drift', null, null, 'Inference requests time out at the gateway', 'upstream request timeout while awaiting model response'],
+    ['vector-store', 'storage', 'capacity', null, null, 'Embedding index rebuild exceeds window', 'index build aborted: memory limit exceeded during HNSW insert']
   ];
 
   const CUSTOMER_WEIGHTS = [
@@ -3676,6 +3691,88 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
         root_cause_category: null, problem_id: null, kb_id: null,
         title: tpl[5], error_signature_raw: tpl[6],
         _generated: true
+      });
+    });
+
+    /* Five deliberate issues per environment.
+       The random tail above draws templates uniformly, so on any given day
+       an environment can come up nearly empty and its health gauge shows
+       100/100 for the wrong reason — no data reads identically to no
+       problems. These are fixed so all three gauges always have something
+       real behind them, and they are spread across severities and states so
+       each environment shows a plausible mix rather than a wall of P1s.
+
+       Columns: component, category, root cause, title, signature,
+                priority, hours ago, minutes to resolve (null = still open) */
+    const ENV_SEED = {
+      flex: [
+        ['nova-compute', 'compute', 'config-drift', 'Scheduler marks two computes down after patching', 'nova-compute State: down Updated_At older than service_down_time', '2', 5, 165],
+        ['ceph', 'storage', 'capacity', 'SSD pool crosses nearfull on DC1', 'HEALTH_WARN pool nearfull POOL_NEAR_FULL', '2', 11, null],
+        ['neutron-ovn', 'networking', 'design-limitation', 'Port binding slow during bulk policy push', 'ovn-northd Raft leader election; port binding timed out', '3', 26, 240],
+        ['octavia', 'networking', 'unknown', 'Listener stuck provisioning on the ingest LB', 'listener stuck in PENDING_UPDATE provisioning_status', '3', 40, null],
+        ['glance', 'image-guest', 'human-error', 'Image upload rejected on checksum', 'image upload failed checksum mismatch', '4', 62, 55]
+      ],
+      opsc: [
+        ['keystone', 'identity', 'software-defect', 'Freshly issued tokens rejected by the API', '401 Unauthorized token revoked', '1', 3, null],
+        ['opencenter-api', 'availability', 'config-drift', 'OpenCenter API 5xx burst behind the load balancer', 'HTTP 500 Internal Server Error haproxy server is DOWN', '2', 9, 195],
+        ['horizon', 'identity', 'config-drift', 'Dashboard 500 after IdP redirect', 'Internal Server Error /auth/websso/', '3', 20, 90],
+        ['mysql-galera', 'availability', 'third-party', 'Galera node desyncs under write load', 'wsrep_local_recv_queue growing node desynced', '2', 34, null],
+        ['opencenter-cli', 'identity', 'works-as-designed', 'CLI reports 404 on a token that exists', "404 Could not find token", '4', 55, 35]
+      ],
+      /* Flex AI carries a deliberately fuller set. Accelerator estates fail in
+         ways the IaaS fabric simply does not have — Xid faults, ECC row
+         remapping, NVLink drops, thermal capping, collective-op timeouts — and
+         the whole argument for giving Flex AI its own gauge is that those
+         failures are invisible when averaged into Flex. The signatures are the
+         real ones an engineer would grep for.
+
+         They also form one causal chain rather than five unrelated faults:
+         GPUs lost to Xid/ECC  ->  fewer allocatable GPUs  ->  pods pending and
+         the survivors thermally capped  ->  inference OOMs and times out.
+         KARL should be able to see that, which it cannot do if the demo data
+         is five independent coincidences. */
+      flexai: [
+        ['gpu-node', 'compute', 'hardware-fault', 'GPU falls off the bus mid-training-run', 'NVRM: Xid 79 GPU has fallen off the bus', '1', 6, null],
+        // P1: no allocatable GPU stops every training job on the platform,
+        // which is a service-down condition for an AI environment even though
+        // the same signature on a general compute pool would be a P2.
+        ['gpu-scheduler', 'compute', 'capacity', 'Training pods pending, no allocatable GPU', '0/12 nodes are available: 12 Insufficient nvidia.com/gpu', '1', 14, null],
+        ['gpu-node', 'compute', 'hardware-fault', 'Uncorrectable ECC error takes a GPU out of service', 'NVRM: Xid 48 double-bit ECC error; row remap pending, GPU marked unhealthy', '2', 19, null],
+        ['gpu-fabric', 'networking', 'hardware-fault', 'NVLink drop stalls multi-GPU all-reduce', 'NCCL WARN NET/IB: got completion with error 12; NCCL timeout in ncclAllReduce', '2', 23, 275],
+        ['model-serving', 'availability', 'capacity', 'Inference OOM under concurrent load', 'CUDA out of memory. Tried to allocate 2.00 GiB', '2', 28, 310],
+        ['gpu-node', 'compute', 'capacity', 'Sustained thermal cap halves training throughput', 'nvidia-smi: SW Thermal Slowdown Active; clocks capped at 810 MHz, GPU temp 88C', '3', 33, null],
+        ['gpu-scheduler', 'compute', 'capacity', 'GPU queue saturated, jobs waiting over an hour', 'DCGM_FI_DEV_GPU_UTIL 100% sustained; scheduler queue depth 47, oldest pending 68m', '2', 38, null],
+        ['inference-gateway', 'availability', 'config-drift', 'Inference requests time out at the gateway', 'upstream request timeout while awaiting model response', '3', 45, 120],
+        ['gpu-driver', 'compute', 'config-drift', 'Driver/CUDA mismatch after node reboot', 'CUDA driver version is insufficient for CUDA runtime version; nvidia-smi has failed', '3', 58, 80],
+        ['vector-store', 'storage', 'capacity', 'Embedding index rebuild exceeds its window', 'index build aborted: memory limit exceeded during HNSW insert', '3', 70, null]
+      ]
+    };
+
+    let sn = 0;
+    const SEED_CUSTOMERS = ['hn-bank', 'hcmc-commerce', 'dc1-shared', 'dc2-shared', 'multisite'];
+    Object.keys(ENV_SEED).forEach(env => {
+      ENV_SEED[env].forEach((row, i) => {
+        const [comp, cat, rc, title, sig, pri, hrs, ttr] = row;
+        const cust = SEED_CUSTOMERS[(sn + i) % SEED_CUSTOMERS.length];
+        const custRec = CUSTOMERS.find(c => c.customer_id === cust);
+        out.push({
+          ticket_id: 'INC' + String(9800 + sn).padStart(7, '0'),
+          customer_id: cust,
+          opened_at: stamp(hrs),
+          time_to_resolve_mins: ttr,
+          service_component: comp, category: cat,
+          environment: 'production',
+          site: custRec ? custRec.sites[0] : 'HN',
+          priority: pri,
+          // Only a closed case has a settled cause. Leaving it on an open one
+          // would inflate the "issue types" breakdown with conclusions nobody
+          // has actually reached yet.
+          root_cause_category: ttr == null ? null : rc,
+          problem_id: null, kb_id: null,
+          title: title, error_signature_raw: sig,
+          _generated: true, _env_seed: env
+        });
+        sn++;
       });
     });
 
@@ -4300,6 +4397,390 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
   global.Topology = Topology;
   global.History = History;
   global.KT_TOPOLOGY = { Topology, History, SITE_INFRA, INFRA_CLASS, CLASS_META };
+})(window);
+
+</script>
+  <!-- Platform / environment dimension (Flex, OpsC, Flex AI): component->platform
+       mapping, resource telemetry stub, and per-environment health. Reads
+       Analytics from kt_data.js, so it loads after it. -->
+  <script id="kt_platform-js-inlined">
+/* ==========================================================================
+ * kt_platform.js — the platform / environment dimension
+ *
+ * Every case already carries a service_component. It does not carry the
+ * PRODUCT the component belongs to, and that is the axis operations actually
+ * runs on: "is Flex healthy?" is a different question from "is neutron busy?".
+ *
+ * Two data sources feed a platform's health, and they are deliberately kept
+ * apart because they have different trustworthiness:
+ *
+ *   incidents  — derived from the ticket store. Real, countable, auditable.
+ *   telemetry  — resource utilisation from the monitoring feed. In this build
+ *                it is DEMO DATA (see TELEMETRY below). It is labelled as such
+ *                everywhere it is displayed, because a fabricated 91% disk
+ *                figure that looks measured is worse than no figure at all.
+ *
+ * KARL's per-environment diagnosis states which of the two moved the score.
+ * ========================================================================== */
+(function (global) {
+  'use strict';
+
+  /* ---------------------------------------------------------------------
+   * The three environments
+   * ------------------------------------------------------------------- */
+  const PLATFORMS = [
+    {
+      key: 'flex',
+      label: 'Flex',
+      blurb: 'IaaS fabric — compute, network, storage, images',
+      colour: '#0A84FF'
+    },
+    {
+      key: 'opsc',
+      label: 'OpsC',
+      blurb: 'OpenCenter control plane — API, auth, CLI, dashboard',
+      colour: '#1DA54B'
+    },
+    {
+      key: 'flexai',
+      label: 'Flex AI',
+      blurb: 'GPU / accelerator estate and the model-serving path',
+      colour: '#AF52DE'
+    }
+  ];
+
+  /* ---------------------------------------------------------------------
+   * component → platform
+   *
+   * An explicit table, not a heuristic. A component nobody has classified
+   * lands in 'unassigned' and is REPORTED rather than quietly folded into
+   * one of the three: a platform total that silently absorbs unknown
+   * components is a number you cannot defend in a review.
+   * ------------------------------------------------------------------- */
+  const COMPONENT_PLATFORM = {
+    /* Flex — the IaaS fabric */
+    'nova-compute': 'flex',
+    'nova-metadata': 'flex',
+    'neutron-ovn': 'flex',
+    'neutron': 'flex',
+    'neutron-dhcp': 'flex',
+    'octavia': 'flex',
+    'cinder': 'flex',
+    'ceph': 'flex',
+    'glance': 'flex',
+    'wan': 'flex',
+    'wan-network': 'flex',
+    'controller-os': 'flex',
+    'hardware': 'flex',
+
+    /* OpsC — the control plane customers log into */
+    'keystone': 'opsc',
+    'horizon': 'opsc',
+    'opencenter-api': 'opsc',
+    'opencenter-cli': 'opsc',
+    'mysql-galera': 'opsc',
+    'rabbitmq': 'opsc',
+    'billing': 'opsc',
+
+    /* Flex AI — accelerators and the serving path */
+    'gpu-node': 'flexai',
+    'gpu-scheduler': 'flexai',
+    'gpu-fabric': 'flexai',
+    'gpu-driver': 'flexai',
+    'model-serving': 'flexai',
+    'vector-store': 'flexai',
+    'inference-gateway': 'flexai'
+  };
+
+  function platformOf(c) {
+    return COMPONENT_PLATFORM[c && c.service_component] || 'unassigned';
+  }
+
+  function meta(key) {
+    return PLATFORMS.find(p => p.key === key) ||
+      { key: 'unassigned', label: 'Unclassified', colour: '#8E8E93',
+        blurb: 'components not yet mapped to a platform' };
+  }
+
+  /* ---------------------------------------------------------------------
+   * Resource telemetry — DEMO DATA
+   *
+   * A real deployment replaces this function with a call to the monitoring
+   * API. It is a function rather than a constant so the swap is a one-place
+   * change, and the values move slowly over the day so the demo does not
+   * look frozen.
+   *
+   * `measured: false` travels with every reading and the UI prints it. That
+   * flag is the whole point — the moment these numbers are presented as
+   * measured, every health score built on them becomes a lie.
+   * ------------------------------------------------------------------- */
+  /* The three baselines describe three different operating postures, so the
+     demo exercises all three health bands rather than showing three green
+     gauges. They are also internally consistent with each environment's
+     seeded incidents: Flex AI is out of memory AND its open cases are OOM,
+     unschedulable pods and index builds that exceed their window. A pretty
+     dashboard where the numbers contradict the tickets teaches people to
+     distrust both. */
+  const TELEMETRY_BASE = {
+    flex:   { cpu: 63, memory: 71, storage: 78, network: 44 },  // storage tight
+    opsc:   { cpu: 56, memory: 78, storage: 41, network: 22 },  // DB tier tight
+    flexai: { cpu: 84, memory: 94, storage: 62, network: 57 }   // memory critical
+  };
+
+  /* A slow deterministic drift: same value for everyone looking at the same
+     hour, so a screenshot and the live page agree.
+     Amplitude is ±3, not ±5, and that is not cosmetic. Each baseline sits far
+     enough from its threshold that ±3 cannot cross it, so an environment
+     keeps the same health band all day. At ±5 the Flex AI memory baseline
+     crossed the 90% critical line and back as the hours passed, and the same
+     unchanged fleet rendered orange in the morning and red after lunch — a
+     dashboard whose colour depends on when you look at it is worse than one
+     with no colour at all. */
+  const DRIFT = 3;
+
+  function drift(key, metric) {
+    const h = new Date().getHours();
+    let s = 0;
+    const str = key + metric;
+    for (let i = 0; i < str.length; i++) s = (s * 31 + str.charCodeAt(i)) % 997;
+    return Math.round(Math.sin((h + s % 24) / 24 * Math.PI * 2) * DRIFT);
+  }
+
+  function telemetry(key) {
+    const base = TELEMETRY_BASE[key];
+    if (!base) return null;
+    const out = { measured: false, source: 'monitoring feed (demo values)' };
+    Object.keys(base).forEach(m => {
+      out[m] = Math.max(0, Math.min(100, base[m] + drift(key, m)));
+    });
+    return out;
+  }
+
+  /* Thresholds a platform engineer would recognise, not round numbers
+     chosen to make the demo light up. */
+  const PRESSURE = { warn: 75, critical: 90 };
+
+  function pressureOf(t) {
+    if (!t) return { band: 'unknown', hottest: null, value: null };
+    const metrics = ['cpu', 'memory', 'storage', 'network'];
+    let hottest = metrics[0];
+    metrics.forEach(m => { if (t[m] > t[hottest]) hottest = m; });
+    const v = t[hottest];
+    return {
+      band: v >= PRESSURE.critical ? 'critical' : v >= PRESSURE.warn ? 'tight' : 'ok',
+      hottest, value: v
+    };
+  }
+
+  /* ---------------------------------------------------------------------
+   * Per-platform health
+   * ------------------------------------------------------------------- */
+  const Platforms = {
+    PLATFORMS, COMPONENT_PLATFORM, PRESSURE,
+    of: platformOf,
+    meta,
+    telemetry,
+
+    /** Cases in the window, grouped by platform. */
+    group(range) {
+      const A = global.Analytics;
+      const list = A ? A.inRange(range) : [];
+      const g = {};
+      PLATFORMS.concat([meta('unassigned')]).forEach(p => { g[p.key] = []; });
+      list.forEach(c => {
+        const k = platformOf(c);
+        (g[k] = g[k] || []).push(c);
+      });
+      return g;
+    },
+
+    /**
+     * One environment's health.
+     *
+     * The score starts at 100 and only ever loses points for something that
+     * can be named. Every deduction carries the sentence that justifies it,
+     * and each is tagged with its source so the card can show which findings
+     * rest on demo telemetry rather than on the ticket record.
+     */
+    health(key, range) {
+      const cases = this.group(range)[key] || [];
+      const t = telemetry(key);
+      const p = pressureOf(t);
+      const days = ((global.Analytics || {}).RANGES || {})[range];
+      const windowDays = days ? days.days : 7;
+
+      const open = cases.filter(c => c.time_to_resolve_mins == null);
+      const solved = cases.filter(c => c.time_to_resolve_mins != null);
+      const p1open = open.filter(c => c.priority === '1');
+      const mins = solved.reduce((s, c) => s + c.time_to_resolve_mins, 0);
+      const mttr = solved.length ? Math.round(mins / solved.length) : null;
+
+      /* Incident types carried by this platform, most frequent first. */
+      const byType = {};
+      cases.forEach(c => {
+        const k = c.root_cause_category || (c.time_to_resolve_mins == null ? 'under-investigation' : 'unclassified');
+        byType[k] = (byType[k] || 0) + 1;
+      });
+      const types = Object.entries(byType)
+        .map(([k, n]) => ({ key: k, count: n }))
+        .sort((a, b) => b.count - a.count);
+
+      const byComp = {};
+      cases.forEach(c => {
+        if (!c.service_component) return;
+        byComp[c.service_component] = (byComp[c.service_component] || 0) + 1;
+      });
+      const components = Object.entries(byComp)
+        .map(([k, n]) => ({ key: k, count: n }))
+        .sort((a, b) => b.count - a.count);
+
+      let score = 100;
+      const factors = [];
+      const hit = (pts, why, src) => { score -= pts; factors.push({ pts, why, source: src }); };
+
+      /* An open P1 is a service-down condition on this environment, so one is
+         enough to take it out of "healthy" (−14 from 100 lands at 86, and the
+         other indicators finish the job) and two are enough to reach at-risk
+         once anything else is wrong. An environment carrying two simultaneous
+         system-down incidents is not "degraded" in any sense an on-call
+         engineer would recognise. Capped at 34 because past three P1s the
+         count stops being the useful signal — the score is already as low as
+         it needs to be to demand attention. */
+      if (p1open.length) {
+        hit(Math.min(34, p1open.length * 14),
+            p1open.length + ' P1 open on this environment', 'incidents');
+      }
+      if (windowDays >= 3 && mttr && mttr > 240) {
+        hit(10, 'MTTR ' + mttr + ' min against a 240 min target', 'incidents');
+      }
+      if (cases.length >= 6 && solved.length / cases.length < 0.5) {
+        hit(10, Math.round(solved.length / cases.length * 100) +
+               '% solved — open work is accumulating here', 'incidents');
+      }
+      /* One component carrying most of an environment's failures is a
+         different problem from an environment that is broadly noisy. */
+      if (components[0] && cases.length >= 5 && components[0].count > cases.length * 0.4) {
+        hit(8, components[0].key + ' carries ' + components[0].count + ' of ' +
+               cases.length + ' cases here', 'incidents');
+      }
+      // "at or above": the bands are >=, and writing "above the 75% line"
+      // next to a reading of exactly 75% is the kind of small inconsistency
+      // that makes people stop trusting the rest of the panel.
+      if (p.band === 'critical') {
+        hit(20, p.hottest + ' at ' + p.value + '% — at or above the ' + PRESSURE.critical +
+               '% critical line', 'telemetry');
+      } else if (p.band === 'tight') {
+        hit(8, p.hottest + ' at ' + p.value + '% — at or above the ' + PRESSURE.warn +
+               '% warning line', 'telemetry');
+      }
+
+      score = Math.max(0, Math.min(100, score));
+
+      return {
+        key, meta: meta(key),
+        score,
+        band: score >= 80 ? 'healthy' : score >= 55 ? 'degraded' : 'at-risk',
+        factors,
+        telemetry: t,
+        pressure: p,
+        window_days: windowDays,
+        counts: {
+          total: cases.length,
+          open: open.length,
+          solved: solved.length,
+          p1_open: p1open.length,
+          mttr,
+          customers: new Set(cases.map(c => c.customer_id).filter(Boolean)).size
+        },
+        types,
+        components
+      };
+    },
+
+    /** Every environment, worst first — the order a dashboard should read in. */
+    all(range) {
+      const rows = PLATFORMS.map(p => this.health(p.key, range));
+      const un = this.group(range).unassigned || [];
+      if (un.length) {
+        rows.push({
+          key: 'unassigned', meta: meta('unassigned'),
+          score: null, band: 'unknown', factors: [], telemetry: null,
+          pressure: { band: 'unknown', hottest: null, value: null },
+          counts: { total: un.length, open: un.filter(c => c.time_to_resolve_mins == null).length,
+                    solved: 0, p1_open: 0, mttr: null,
+                    customers: new Set(un.map(c => c.customer_id).filter(Boolean)).size },
+          types: [], components: []
+        });
+      }
+      return rows.sort((a, b) => {
+        if (a.score == null) return 1;
+        if (b.score == null) return -1;
+        return a.score - b.score;
+      });
+    },
+
+    /**
+     * KARL's plain-language read on each environment.
+     *
+     * Deliberately says WHICH source drove the verdict. "Flex AI is at risk"
+     * is not actionable; "Flex AI is at risk on memory headroom, not on
+     * incident volume" tells you whether to call capacity or call support.
+     */
+    diagnose(range) {
+      return this.all(range).map(h => {
+        if (h.score == null) {
+          return Object.assign({}, h, {
+            verdict: 'unclassified',
+            summary: h.counts.total + ' case(s) on components not yet mapped to a platform. ' +
+                     'Map them in COMPONENT_PLATFORM before trusting the per-environment totals.'
+          });
+        }
+
+        const fromTelemetry = h.factors.filter(f => f.source === 'telemetry');
+        const fromIncidents = h.factors.filter(f => f.source === 'incidents');
+
+        let summary;
+        if (!h.factors.length) {
+          summary = h.meta.label + ' is inside target on every indicator — ' +
+                    h.counts.total + ' case(s), ' + h.counts.open + ' open, ' +
+                    (h.pressure.value != null
+                      ? 'peak utilisation ' + h.pressure.value + '% on ' + h.pressure.hottest + '.'
+                      : 'no telemetry.');
+        } else if (fromTelemetry.length && !fromIncidents.length) {
+          summary = h.meta.label + ' is carrying no unusual incident load; the score is ' +
+                    'resource pressure alone — ' + fromTelemetry[0].why +
+                    '. This is a capacity conversation, not a support one.';
+        } else if (fromIncidents.length && !fromTelemetry.length) {
+          summary = h.meta.label + ' has headroom on every resource; the score is incident ' +
+                    'load — ' + fromIncidents[0].why + '.';
+        } else {
+          summary = h.meta.label + ' is loaded on both axes: ' + fromIncidents[0].why +
+                    ', and ' + fromTelemetry[0].why + '. Resource pressure and failure ' +
+                    'rate rising together usually means one is causing the other.';
+        }
+
+        const topType = h.types[0];
+        if (topType && topType.count > 1) {
+          summary += ' Most frequent issue type: ' + topType.key +
+                     ' (' + topType.count + ' of ' + h.counts.total + ').';
+        }
+
+        return Object.assign({}, h, {
+          verdict: h.band === 'healthy' ? 'env_healthy'
+                 : h.band === 'degraded' ? 'env_degraded' : 'env_at_risk',
+          summary,
+          driven_by: fromTelemetry.length && fromIncidents.length ? 'both'
+                   : fromTelemetry.length ? 'telemetry'
+                   : fromIncidents.length ? 'incidents' : 'none'
+        });
+      });
+    }
+  };
+
+  global.Platforms = Platforms;
+  if (global.KB_VOCAB) {
+    global.KB_VOCAB.platform = PLATFORMS.map(p => ({ key: p.key, label: p.label }));
+  }
 })(window);
 
 </script>
@@ -7023,9 +7504,57 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
         why: p.status + ', seen ' + p.recurrence_count + '×'
       }));
 
+    /* Per-environment read.
+       The fleet score is an average, and an average is exactly the wrong
+       shape for this question: one environment at 45 and two at 95 reports
+       as "78, degraded" and nobody knows where to look. Diagnose each
+       environment separately and lead the headline with the worst. */
+    const envs = global.Platforms ? global.Platforms.diagnose(range) : [];
+    r.platforms = envs;
+    const scored = envs.filter(e => e.score != null);
+    const worstEnv = scored[0];
+
+    if (worstEnv && worstEnv.band !== 'healthy') {
+      r.headline = worstEnv.meta.label + ' is the environment to look at — ' +
+        worstEnv.score + '/100 (' + worstEnv.band + '). Fleet health ' + h.score + '/100 over the ' +
+        (global.Analytics.RANGES[range] || {}).label.toLowerCase() + '.';
+      r.verdict = worstEnv.band === 'degraded' ? 'infra_degraded' : 'infra_at_risk';
+    }
+
     r.reasoning = h.factors.length
       ? h.factors.map(f => '−' + f.pts + ' pts: ' + f.why)
       : ['No score deductions — all monitored indicators are inside target.'];
+
+    scored.forEach(e => {
+      r.reasoning.push(e.meta.label + ' ' + e.score + '/100 (' + e.band + '): ' + e.summary);
+      r.evidence.push({
+        type: 'platform', id: e.meta.label,
+        label: e.score + '/100 · ' + e.counts.total + ' case(s), ' + e.counts.open + ' open' +
+               (e.pressure.value != null
+                 ? ' · peak ' + e.pressure.hottest + ' ' + e.pressure.value + '%'
+                 : ''),
+        why: e.driven_by === 'both' ? 'incident load and resource pressure together'
+           : e.driven_by === 'telemetry' ? 'resource pressure only — capacity, not support'
+           : e.driven_by === 'incidents' ? 'incident load only — resources have headroom'
+           : 'inside target on every indicator'
+      });
+    });
+
+    const unmapped = envs.find(e => e.key === 'unassigned');
+    if (unmapped) {
+      r.reasoning.push('Caveat: ' + unmapped.counts.total + ' case(s) sit on components that are ' +
+        'not mapped to any environment, so the three per-environment totals do not sum to the ' +
+        'fleet total. Those cases are excluded rather than guessed at.');
+    }
+
+    /* Utilisation is demo telemetry in this build. Saying so inside the
+       diagnostic itself — not only in the UI — keeps the caveat attached to
+       the finding when someone copies the text into a report. */
+    if (scored.some(e => e.telemetry && !e.telemetry.measured)) {
+      r.reasoning.push('Resource utilisation figures come from the monitoring feed stub ' +
+        '(demo values). Incident counts, MTTR and severities are read from the real case store.');
+    }
+
     r.reasoning.push('Top components: ' + comps.map(x => x.key + ' (' + x.count + ')').join(', ') + '.');
     r.reasoning.push('Most affected customers: ' + custs.map(x => x.key + ' (' + x.count + ')').join(', ') + '.');
 
@@ -7035,6 +7564,30 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
 
     if (c.p1_open > 0) act('Review the ' + c.p1_open + ' open P1 incident(s) before anything else',
       'Open P1s dominate both customer perception and the health score', 'P1 count trending to zero', 30);
+
+    /* Environment-specific actions, split by what actually moved the score.
+       A capacity problem and an incident problem go to different teams. */
+    scored.filter(e => e.band !== 'healthy').forEach(e => {
+      if (e.driven_by === 'telemetry') {
+        act('Raise capacity on ' + e.meta.label + ' — ' + e.pressure.hottest + ' at ' + e.pressure.value + '%',
+          'No unusual incident load on this environment; the constraint is headroom, so support ' +
+          'work will not move it', e.pressure.hottest + ' back under ' +
+          (global.Platforms ? global.Platforms.PRESSURE.warn : 75) + '%', 120, 'Change window required');
+      } else if (e.driven_by === 'incidents') {
+        const top = e.components[0];
+        act('Work the incident backlog on ' + e.meta.label +
+            (top ? ' — starting with ' + top.key + ' (' + top.count + ' case(s))' : ''),
+          'Resources have headroom here, so this is a fault-handling problem rather than a ' +
+          'capacity one', e.meta.label + ' score back above 80', 90);
+      } else if (e.driven_by === 'both') {
+        act('Test whether ' + e.pressure.hottest + ' pressure on ' + e.meta.label +
+            ' is causing its incidents',
+          'Utilisation and failure rate are elevated together — treating them as two separate ' +
+          'problems usually means fixing neither',
+          'Either the correlation is confirmed and one fix closes both, or they are ruled ' +
+          'independent and split', 60);
+      }
+    });
     if (comps[0] && comps[0].count > 3) act('Run a component review on ' + comps[0].key + ' — ' + comps[0].count + ' cases this period',
       'A single component concentrating failures usually indicates one unfixed underlying Problem, not many separate faults',
       'Cases consolidate into one or two Problem records', 60);
@@ -8863,6 +9416,67 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
     .health-ring { font-size: 2.1rem; font-weight: 800; line-height: 1 }
     .range-btn.active { background: var(--supp); color: #fff; border-color: var(--supp) }
 
+    /* ---- Per-environment health gauges -------------------------------
+       Three bands, and only three, because the card has to answer one
+       question: does anyone need to do something right now?
+         green  — healthy, no action
+         orange — heads up, plan work
+         red    — immediate action
+       The colours are the deepened iOS values used elsewhere in the page,
+       chosen for contrast against both themes rather than taken from the
+       stock palette (systemGreen on white measures 2.0:1 and is unreadable).
+       Colour is never the only signal: every gauge also prints its score and
+       a word, for the ~8% of men with a colour vision deficiency. */
+    :root {
+      --gauge-ok: #1DA54B;
+      --gauge-warn: #D97400;
+      --gauge-bad: #D70015;
+      --gauge-track: rgba(120, 120, 128, .18);
+    }
+    .env-card {
+      border: 1px solid var(--bs-border-color);
+      border-radius: .5rem;
+      padding: .75rem;
+      height: 100%;
+      display: flex;
+      gap: .75rem;
+      align-items: flex-start;
+    }
+    .env-card.is-bad { border-color: var(--gauge-bad); border-width: 2px }
+    .env-card.is-warn { border-color: var(--gauge-warn) }
+    .gauge { flex: 0 0 auto; position: relative; width: 96px; height: 96px }
+    .gauge svg { width: 96px; height: 96px; transform: rotate(-90deg) }
+    .gauge .gv {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      line-height: 1;
+    }
+    .gauge .gv .n { font-size: 1.55rem; font-weight: 800 }
+    .gauge .gv .u { font-size: .62rem; opacity: .6; margin-top: 2px }
+    .env-name { font-size: .95rem; font-weight: 700 }
+    .env-band {
+      display: inline-block; font-size: .62rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: 1px 7px; border-radius: 999px; color: #fff; vertical-align: 2px;
+    }
+    .band-ok { background: var(--gauge-ok) }
+    .band-warn { background: var(--gauge-warn) }
+    .band-bad { background: var(--gauge-bad) }
+    .band-unknown { background: #8E8E93 }
+    .env-metric { font-size: .72rem; display: flex; align-items: center; gap: .35rem; margin-top: 2px }
+    .env-metric .lbl { width: 58px; opacity: .7; flex: 0 0 auto }
+    .env-metric .trk { flex: 1 1 auto; height: 5px; border-radius: 3px; background: var(--gauge-track); overflow: hidden }
+    .env-metric .fil { height: 100%; border-radius: 3px }
+    .env-metric .num { width: 34px; text-align: right; font-variant-numeric: tabular-nums; flex: 0 0 auto }
+    .env-chip {
+      display: inline-block; font-size: .68rem; padding: 1px 6px;
+      border: 1px solid var(--bs-border-color); border-radius: 999px; margin: 2px 3px 0 0;
+    }
+    @media (max-width: 575.98px) {
+      .env-card { flex-direction: column; align-items: center; text-align: center }
+    }
+
     .form-label.mb-1 { font-size: .9rem; font-weight: 500 }
 
     #chatBox {
@@ -9681,6 +10295,25 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
             <i class="fa-solid fa-robot"></i> AI infrastructure diagnostic
           </button>
         </div>
+
+        <!-- Per-environment health. Sits above the fleet KPIs deliberately:
+             "which environment is in trouble" is the first question, and a
+             fleet-wide average hides a single failing platform. -->
+        <div class="d-flex justify-content-between align-items-end mb-2">
+          <div>
+            <span class="fw-semibold" style="font-size:.86rem">
+              <i class="fa-solid fa-heart-pulse"></i> Environment health
+              <span class="ai-note fw-normal">diagnosed by KARL</span>
+            </span>
+            <div class="ai-note" id="envHealthNote"></div>
+          </div>
+          <span class="ai-note text-end" style="font-size:.68rem">
+            <span style="color:var(--gauge-ok)">●</span> healthy &nbsp;
+            <span style="color:var(--gauge-warn)">●</span> heads up &nbsp;
+            <span style="color:var(--gauge-bad)">●</span> immediate action
+          </span>
+        </div>
+        <div class="row g-2 mb-3" id="envHealthRow"></div>
 
         <div class="row g-2 mb-3" id="kpiRow"></div>
 
@@ -17468,6 +18101,110 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
       : '<div class="ai-note">No cases in this range.</div>';
   }
 
+  /* ==================================================================== */
+  /* Per-environment health gauges                                        */
+  /* ==================================================================== */
+
+  /* Three bands, mapped once so the ring, the pill and the border can never
+     disagree with each other. */
+  function bandStyle(band) {
+    return ({
+      healthy:   { colour: 'var(--gauge-ok)',   cls: 'band-ok',      word: 'healthy',  card: '' },
+      degraded:  { colour: 'var(--gauge-warn)', cls: 'band-warn',    word: 'heads up', card: 'is-warn' },
+      'at-risk': { colour: 'var(--gauge-bad)',  cls: 'band-bad',     word: 'act now',  card: 'is-bad' }
+    })[band] || { colour: '#8E8E93', cls: 'band-unknown', word: 'no data', card: '' };
+  }
+
+  /* A donut drawn with stroke-dasharray on a circle. The circumference is
+     computed rather than hard-coded so changing the radius cannot silently
+     desynchronise the arc from the value it is meant to show. */
+  function gaugeSvg(score, colour) {
+    const R = 26, C = 2 * Math.PI * R;
+    const pct = score == null ? 0 : Math.max(0, Math.min(100, score));
+    const arc = C * pct / 100;
+    return '<svg viewBox="0 0 64 64" aria-hidden="true">' +
+      '<circle cx="32" cy="32" r="' + R + '" fill="none" stroke="var(--gauge-track)" stroke-width="7"/>' +
+      (score == null ? '' :
+        '<circle cx="32" cy="32" r="' + R + '" fill="none" stroke="' + colour + '" ' +
+          'stroke-width="7" stroke-linecap="round" ' +
+          'stroke-dasharray="' + arc.toFixed(2) + ' ' + (C - arc).toFixed(2) + '"/>') +
+      '</svg>';
+  }
+
+  function utilBar(label, v) {
+    // Resource bars use the same three bands as the gauge, so "orange means
+    // plan work" holds everywhere on the card.
+    const P = (window.Platforms || {}).PRESSURE || { warn: 75, critical: 90 };
+    const col = v >= P.critical ? 'var(--gauge-bad)' : v >= P.warn ? 'var(--gauge-warn)' : 'var(--gauge-ok)';
+    return '<div class="env-metric"><span class="lbl">' + esc_(label) + '</span>' +
+      '<span class="trk"><span class="fil" style="width:' + v + '%;background:' + col + '"></span></span>' +
+      '<span class="num">' + v + '%</span></div>';
+  }
+
+  function renderEnvHealth() {
+    const el = $('envHealthRow');
+    if (!el) return;
+    if (!window.Platforms) {
+      el.innerHTML = '<div class="col-12"><div class="ai-note">Platform module not loaded.</div></div>';
+      return;
+    }
+
+    const rows = window.Platforms.diagnose(dashRange);
+    const worst = rows.filter(r => r.score != null)[0];
+
+    el.innerHTML = rows.map(r => {
+      const s = bandStyle(r.band);
+      const c = r.counts;
+      const t = r.telemetry;
+
+      const types = r.types.slice(0, 3).map(x =>
+        '<span class="env-chip">' + esc_(rcLabel ? rcLabel(x.key) : x.key) + ' · ' + x.count + '</span>'
+      ).join('');
+
+      return '<div class="col-12 col-lg-4">' +
+        '<div class="env-card ' + s.card + '" title="' + esc_(r.summary || '') + '">' +
+          '<div class="gauge">' + gaugeSvg(r.score, s.colour) +
+            '<div class="gv"><span class="n" style="color:' + s.colour + '">' +
+              (r.score == null ? '—' : r.score) + '</span>' +
+              '<span class="u">' + (r.score == null ? 'unmapped' : '/ 100') + '</span></div>' +
+          '</div>' +
+          '<div class="flex-grow-1" style="min-width:0">' +
+            '<div class="env-name">' + esc_(r.meta.label) +
+              ' <span class="env-band ' + s.cls + '">' + s.word + '</span></div>' +
+            '<div class="ai-note">' + esc_(r.meta.blurb) + '</div>' +
+            '<div style="font-size:.74rem;margin-top:.3rem">' +
+              '<strong>' + c.total + '</strong> case(s) · ' +
+              '<span class="text-warning">' + c.open + ' open</span>' +
+              (c.p1_open ? ' · <span class="text-danger fw-semibold">' + c.p1_open + ' P1</span>' : '') +
+              (c.mttr != null ? ' · MTTR ' + c.mttr + 'm' : '') +
+              ' · ' + c.customers + ' customer(s)' +
+            '</div>' +
+            (types ? '<div style="margin-top:.15rem">' + types + '</div>' : '') +
+            (t
+              ? '<div style="margin-top:.4rem">' +
+                  utilBar('CPU', t.cpu) + utilBar('Memory', t.memory) +
+                  utilBar('Storage', t.storage) + utilBar('Network', t.network) +
+                  '<div class="ai-note" style="font-size:.62rem;margin-top:.2rem">' +
+                    '<i class="fa-solid fa-circle-info"></i> ' + esc_(t.source) +
+                  '</div>' +
+                '</div>'
+              : '') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    const note = $('envHealthNote');
+    if (note) {
+      note.textContent = worst
+        ? (worst.band === 'healthy'
+            ? 'All environments inside target. Lowest is ' + worst.meta.label +
+              ' at ' + worst.score + '/100.'
+            : worst.summary)
+        : 'No cases in this range.';
+    }
+  }
+
   function renderTrendChart(data) {
     const { buckets } = data;
     const max = Math.max(1, ...buckets.map(b => b.opened));
@@ -17510,6 +18247,7 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
       kpi('MTTR', (c.mttr != null ? c.mttr + 'm' : '—'), 'target < 240m', (c.mttr && c.mttr > 240) ? 'warn' : 'good') +
       kpi('Open problems', c.open_problems, c.recurrences + ' recurrences', c.open_problems ? 'warn' : 'good');
 
+    renderEnvHealth();
     renderTrendChart(Analytics.trend(dashRange));
 
     const bandCls = h.band === 'healthy' ? 'text-success' : h.band === 'degraded' ? 'text-warning' : 'text-danger';
@@ -17859,7 +18597,8 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
   function renderAIPanel(r, targetId) {
     const ev = r.evidence.map(e =>
       '<span class="ai-chip ' + e.type + '" title="' + esc_(e.why) + '">' +
-      '<i class="fa-solid fa-' + (e.type === 'kb' ? 'book' : e.type === 'problem' ? 'bullseye' : 'ticket') + '"></i>' +
+      '<i class="fa-solid fa-' + (e.type === 'kb' ? 'book' : e.type === 'problem' ? 'bullseye'
+        : e.type === 'platform' ? 'layer-group' : 'ticket') + '"></i>' +
       esc_(e.id) + '</span>').join(' ');
 
     const steps = r.actions.map(a =>

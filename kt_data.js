@@ -620,7 +620,22 @@
     ['controller-os', 'availability', 'human-error', null, 'KB-2025-0012', 'API 5xx burst during patching', 'HTTP 500 Internal Server Error haproxy server is DOWN'],
     ['octavia', 'networking', 'unknown', null, null, 'Load balancer listener slow to provision', 'listener stuck in PENDING_UPDATE provisioning_status'],
     ['glance', 'image-guest', 'config-drift', null, null, 'Image upload checksum mismatch', 'image upload failed checksum mismatch'],
-    ['mysql-galera', 'availability', 'third-party', null, null, 'Galera node desync under write load', 'wsrep_local_recv_queue growing node desynced']
+    ['mysql-galera', 'availability', 'third-party', null, null, 'Galera node desync under write load', 'wsrep_local_recv_queue growing node desynced'],
+
+    /* Flex AI. The accelerator estate fails differently from the IaaS fabric —
+       its cases cluster on memory and scheduling rather than on networking —
+       which is exactly why it deserves its own health gauge instead of being
+       averaged into Flex. */
+    ['gpu-node', 'compute', 'hardware-fault', null, 'KB-2025-0021', 'GPU falls off the bus mid-job', 'NVRM: Xid 79 GPU has fallen off the bus'],
+    ['gpu-node', 'compute', 'hardware-fault', null, 'KB-2025-0024', 'Uncorrectable ECC error retires a GPU', 'NVRM: Xid 48 double-bit ECC error; row remap pending, GPU marked unhealthy'],
+    ['gpu-node', 'compute', 'capacity', null, 'KB-2025-0025', 'Thermal slowdown caps training clocks', 'nvidia-smi: SW Thermal Slowdown Active; clocks capped at 810 MHz, GPU temp 88C'],
+    ['gpu-scheduler', 'compute', 'capacity', 'PRB-0007', 'KB-2025-0022', 'Training pods pending, no allocatable GPU', '0/12 nodes are available: 12 Insufficient nvidia.com/gpu'],
+    ['gpu-scheduler', 'compute', 'capacity', 'PRB-0007', null, 'GPU queue saturated under batch submission', 'DCGM_FI_DEV_GPU_UTIL 100% sustained; scheduler queue depth 47, oldest pending 68m'],
+    ['gpu-fabric', 'networking', 'hardware-fault', null, 'KB-2025-0026', 'NVLink error stalls collective operations', 'NCCL WARN NET/IB: got completion with error 12; NCCL timeout in ncclAllReduce'],
+    ['gpu-driver', 'compute', 'config-drift', null, 'KB-2025-0027', 'Driver/CUDA mismatch after node reboot', 'CUDA driver version is insufficient for CUDA runtime version; nvidia-smi has failed'],
+    ['model-serving', 'availability', 'capacity', 'PRB-0007', 'KB-2025-0023', 'Inference OOM under concurrent load', 'CUDA out of memory. Tried to allocate 2.00 GiB'],
+    ['inference-gateway', 'availability', 'config-drift', null, null, 'Inference requests time out at the gateway', 'upstream request timeout while awaiting model response'],
+    ['vector-store', 'storage', 'capacity', null, null, 'Embedding index rebuild exceeds window', 'index build aborted: memory limit exceeded during HNSW insert']
   ];
 
   const CUSTOMER_WEIGHTS = [
@@ -701,6 +716,88 @@
         root_cause_category: null, problem_id: null, kb_id: null,
         title: tpl[5], error_signature_raw: tpl[6],
         _generated: true
+      });
+    });
+
+    /* Five deliberate issues per environment.
+       The random tail above draws templates uniformly, so on any given day
+       an environment can come up nearly empty and its health gauge shows
+       100/100 for the wrong reason — no data reads identically to no
+       problems. These are fixed so all three gauges always have something
+       real behind them, and they are spread across severities and states so
+       each environment shows a plausible mix rather than a wall of P1s.
+
+       Columns: component, category, root cause, title, signature,
+                priority, hours ago, minutes to resolve (null = still open) */
+    const ENV_SEED = {
+      flex: [
+        ['nova-compute', 'compute', 'config-drift', 'Scheduler marks two computes down after patching', 'nova-compute State: down Updated_At older than service_down_time', '2', 5, 165],
+        ['ceph', 'storage', 'capacity', 'SSD pool crosses nearfull on DC1', 'HEALTH_WARN pool nearfull POOL_NEAR_FULL', '2', 11, null],
+        ['neutron-ovn', 'networking', 'design-limitation', 'Port binding slow during bulk policy push', 'ovn-northd Raft leader election; port binding timed out', '3', 26, 240],
+        ['octavia', 'networking', 'unknown', 'Listener stuck provisioning on the ingest LB', 'listener stuck in PENDING_UPDATE provisioning_status', '3', 40, null],
+        ['glance', 'image-guest', 'human-error', 'Image upload rejected on checksum', 'image upload failed checksum mismatch', '4', 62, 55]
+      ],
+      opsc: [
+        ['keystone', 'identity', 'software-defect', 'Freshly issued tokens rejected by the API', '401 Unauthorized token revoked', '1', 3, null],
+        ['opencenter-api', 'availability', 'config-drift', 'OpenCenter API 5xx burst behind the load balancer', 'HTTP 500 Internal Server Error haproxy server is DOWN', '2', 9, 195],
+        ['horizon', 'identity', 'config-drift', 'Dashboard 500 after IdP redirect', 'Internal Server Error /auth/websso/', '3', 20, 90],
+        ['mysql-galera', 'availability', 'third-party', 'Galera node desyncs under write load', 'wsrep_local_recv_queue growing node desynced', '2', 34, null],
+        ['opencenter-cli', 'identity', 'works-as-designed', 'CLI reports 404 on a token that exists', "404 Could not find token", '4', 55, 35]
+      ],
+      /* Flex AI carries a deliberately fuller set. Accelerator estates fail in
+         ways the IaaS fabric simply does not have — Xid faults, ECC row
+         remapping, NVLink drops, thermal capping, collective-op timeouts — and
+         the whole argument for giving Flex AI its own gauge is that those
+         failures are invisible when averaged into Flex. The signatures are the
+         real ones an engineer would grep for.
+
+         They also form one causal chain rather than five unrelated faults:
+         GPUs lost to Xid/ECC  ->  fewer allocatable GPUs  ->  pods pending and
+         the survivors thermally capped  ->  inference OOMs and times out.
+         KARL should be able to see that, which it cannot do if the demo data
+         is five independent coincidences. */
+      flexai: [
+        ['gpu-node', 'compute', 'hardware-fault', 'GPU falls off the bus mid-training-run', 'NVRM: Xid 79 GPU has fallen off the bus', '1', 6, null],
+        // P1: no allocatable GPU stops every training job on the platform,
+        // which is a service-down condition for an AI environment even though
+        // the same signature on a general compute pool would be a P2.
+        ['gpu-scheduler', 'compute', 'capacity', 'Training pods pending, no allocatable GPU', '0/12 nodes are available: 12 Insufficient nvidia.com/gpu', '1', 14, null],
+        ['gpu-node', 'compute', 'hardware-fault', 'Uncorrectable ECC error takes a GPU out of service', 'NVRM: Xid 48 double-bit ECC error; row remap pending, GPU marked unhealthy', '2', 19, null],
+        ['gpu-fabric', 'networking', 'hardware-fault', 'NVLink drop stalls multi-GPU all-reduce', 'NCCL WARN NET/IB: got completion with error 12; NCCL timeout in ncclAllReduce', '2', 23, 275],
+        ['model-serving', 'availability', 'capacity', 'Inference OOM under concurrent load', 'CUDA out of memory. Tried to allocate 2.00 GiB', '2', 28, 310],
+        ['gpu-node', 'compute', 'capacity', 'Sustained thermal cap halves training throughput', 'nvidia-smi: SW Thermal Slowdown Active; clocks capped at 810 MHz, GPU temp 88C', '3', 33, null],
+        ['gpu-scheduler', 'compute', 'capacity', 'GPU queue saturated, jobs waiting over an hour', 'DCGM_FI_DEV_GPU_UTIL 100% sustained; scheduler queue depth 47, oldest pending 68m', '2', 38, null],
+        ['inference-gateway', 'availability', 'config-drift', 'Inference requests time out at the gateway', 'upstream request timeout while awaiting model response', '3', 45, 120],
+        ['gpu-driver', 'compute', 'config-drift', 'Driver/CUDA mismatch after node reboot', 'CUDA driver version is insufficient for CUDA runtime version; nvidia-smi has failed', '3', 58, 80],
+        ['vector-store', 'storage', 'capacity', 'Embedding index rebuild exceeds its window', 'index build aborted: memory limit exceeded during HNSW insert', '3', 70, null]
+      ]
+    };
+
+    let sn = 0;
+    const SEED_CUSTOMERS = ['hn-bank', 'hcmc-commerce', 'dc1-shared', 'dc2-shared', 'multisite'];
+    Object.keys(ENV_SEED).forEach(env => {
+      ENV_SEED[env].forEach((row, i) => {
+        const [comp, cat, rc, title, sig, pri, hrs, ttr] = row;
+        const cust = SEED_CUSTOMERS[(sn + i) % SEED_CUSTOMERS.length];
+        const custRec = CUSTOMERS.find(c => c.customer_id === cust);
+        out.push({
+          ticket_id: 'INC' + String(9800 + sn).padStart(7, '0'),
+          customer_id: cust,
+          opened_at: stamp(hrs),
+          time_to_resolve_mins: ttr,
+          service_component: comp, category: cat,
+          environment: 'production',
+          site: custRec ? custRec.sites[0] : 'HN',
+          priority: pri,
+          // Only a closed case has a settled cause. Leaving it on an open one
+          // would inflate the "issue types" breakdown with conclusions nobody
+          // has actually reached yet.
+          root_cause_category: ttr == null ? null : rc,
+          problem_id: null, kb_id: null,
+          title: title, error_signature_raw: sig,
+          _generated: true, _env_seed: env
+        });
+        sn++;
       });
     });
 

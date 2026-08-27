@@ -18,6 +18,10 @@
   <script src="kt_data.js"></script>
   <!-- Infra topology (customer > site > infra location) + ticket history (v9) -->
   <script src="kt_topology.js"></script>
+  <!-- Platform / environment dimension (Flex, OpsC, Flex AI): component->platform
+       mapping, resource telemetry stub, and per-environment health. Reads
+       Analytics from kt_data.js, so it loads after it. -->
+  <script src="kt_platform.js"></script>
   <!-- The 8-stage Universal Troubleshooting Pipeline — stage definitions,
        computed progress, and the next-best-action rule. Loads BEFORE the
        agent, which reads its stage list rather than defining its own. -->
@@ -146,6 +150,67 @@
 
     .health-ring { font-size: 2.1rem; font-weight: 800; line-height: 1 }
     .range-btn.active { background: var(--supp); color: #fff; border-color: var(--supp) }
+
+    /* ---- Per-environment health gauges -------------------------------
+       Three bands, and only three, because the card has to answer one
+       question: does anyone need to do something right now?
+         green  — healthy, no action
+         orange — heads up, plan work
+         red    — immediate action
+       The colours are the deepened iOS values used elsewhere in the page,
+       chosen for contrast against both themes rather than taken from the
+       stock palette (systemGreen on white measures 2.0:1 and is unreadable).
+       Colour is never the only signal: every gauge also prints its score and
+       a word, for the ~8% of men with a colour vision deficiency. */
+    :root {
+      --gauge-ok: #1DA54B;
+      --gauge-warn: #D97400;
+      --gauge-bad: #D70015;
+      --gauge-track: rgba(120, 120, 128, .18);
+    }
+    .env-card {
+      border: 1px solid var(--bs-border-color);
+      border-radius: .5rem;
+      padding: .75rem;
+      height: 100%;
+      display: flex;
+      gap: .75rem;
+      align-items: flex-start;
+    }
+    .env-card.is-bad { border-color: var(--gauge-bad); border-width: 2px }
+    .env-card.is-warn { border-color: var(--gauge-warn) }
+    .gauge { flex: 0 0 auto; position: relative; width: 96px; height: 96px }
+    .gauge svg { width: 96px; height: 96px; transform: rotate(-90deg) }
+    .gauge .gv {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      line-height: 1;
+    }
+    .gauge .gv .n { font-size: 1.55rem; font-weight: 800 }
+    .gauge .gv .u { font-size: .62rem; opacity: .6; margin-top: 2px }
+    .env-name { font-size: .95rem; font-weight: 700 }
+    .env-band {
+      display: inline-block; font-size: .62rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: 1px 7px; border-radius: 999px; color: #fff; vertical-align: 2px;
+    }
+    .band-ok { background: var(--gauge-ok) }
+    .band-warn { background: var(--gauge-warn) }
+    .band-bad { background: var(--gauge-bad) }
+    .band-unknown { background: #8E8E93 }
+    .env-metric { font-size: .72rem; display: flex; align-items: center; gap: .35rem; margin-top: 2px }
+    .env-metric .lbl { width: 58px; opacity: .7; flex: 0 0 auto }
+    .env-metric .trk { flex: 1 1 auto; height: 5px; border-radius: 3px; background: var(--gauge-track); overflow: hidden }
+    .env-metric .fil { height: 100%; border-radius: 3px }
+    .env-metric .num { width: 34px; text-align: right; font-variant-numeric: tabular-nums; flex: 0 0 auto }
+    .env-chip {
+      display: inline-block; font-size: .68rem; padding: 1px 6px;
+      border: 1px solid var(--bs-border-color); border-radius: 999px; margin: 2px 3px 0 0;
+    }
+    @media (max-width: 575.98px) {
+      .env-card { flex-direction: column; align-items: center; text-align: center }
+    }
 
     .form-label.mb-1 { font-size: .9rem; font-weight: 500 }
 
@@ -965,6 +1030,25 @@
             <i class="fa-solid fa-robot"></i> AI infrastructure diagnostic
           </button>
         </div>
+
+        <!-- Per-environment health. Sits above the fleet KPIs deliberately:
+             "which environment is in trouble" is the first question, and a
+             fleet-wide average hides a single failing platform. -->
+        <div class="d-flex justify-content-between align-items-end mb-2">
+          <div>
+            <span class="fw-semibold" style="font-size:.86rem">
+              <i class="fa-solid fa-heart-pulse"></i> Environment health
+              <span class="ai-note fw-normal">diagnosed by KARL</span>
+            </span>
+            <div class="ai-note" id="envHealthNote"></div>
+          </div>
+          <span class="ai-note text-end" style="font-size:.68rem">
+            <span style="color:var(--gauge-ok)">●</span> healthy &nbsp;
+            <span style="color:var(--gauge-warn)">●</span> heads up &nbsp;
+            <span style="color:var(--gauge-bad)">●</span> immediate action
+          </span>
+        </div>
+        <div class="row g-2 mb-3" id="envHealthRow"></div>
 
         <div class="row g-2 mb-3" id="kpiRow"></div>
 
@@ -8752,6 +8836,110 @@
       : '<div class="ai-note">No cases in this range.</div>';
   }
 
+  /* ==================================================================== */
+  /* Per-environment health gauges                                        */
+  /* ==================================================================== */
+
+  /* Three bands, mapped once so the ring, the pill and the border can never
+     disagree with each other. */
+  function bandStyle(band) {
+    return ({
+      healthy:   { colour: 'var(--gauge-ok)',   cls: 'band-ok',      word: 'healthy',  card: '' },
+      degraded:  { colour: 'var(--gauge-warn)', cls: 'band-warn',    word: 'heads up', card: 'is-warn' },
+      'at-risk': { colour: 'var(--gauge-bad)',  cls: 'band-bad',     word: 'act now',  card: 'is-bad' }
+    })[band] || { colour: '#8E8E93', cls: 'band-unknown', word: 'no data', card: '' };
+  }
+
+  /* A donut drawn with stroke-dasharray on a circle. The circumference is
+     computed rather than hard-coded so changing the radius cannot silently
+     desynchronise the arc from the value it is meant to show. */
+  function gaugeSvg(score, colour) {
+    const R = 26, C = 2 * Math.PI * R;
+    const pct = score == null ? 0 : Math.max(0, Math.min(100, score));
+    const arc = C * pct / 100;
+    return '<svg viewBox="0 0 64 64" aria-hidden="true">' +
+      '<circle cx="32" cy="32" r="' + R + '" fill="none" stroke="var(--gauge-track)" stroke-width="7"/>' +
+      (score == null ? '' :
+        '<circle cx="32" cy="32" r="' + R + '" fill="none" stroke="' + colour + '" ' +
+          'stroke-width="7" stroke-linecap="round" ' +
+          'stroke-dasharray="' + arc.toFixed(2) + ' ' + (C - arc).toFixed(2) + '"/>') +
+      '</svg>';
+  }
+
+  function utilBar(label, v) {
+    // Resource bars use the same three bands as the gauge, so "orange means
+    // plan work" holds everywhere on the card.
+    const P = (window.Platforms || {}).PRESSURE || { warn: 75, critical: 90 };
+    const col = v >= P.critical ? 'var(--gauge-bad)' : v >= P.warn ? 'var(--gauge-warn)' : 'var(--gauge-ok)';
+    return '<div class="env-metric"><span class="lbl">' + esc_(label) + '</span>' +
+      '<span class="trk"><span class="fil" style="width:' + v + '%;background:' + col + '"></span></span>' +
+      '<span class="num">' + v + '%</span></div>';
+  }
+
+  function renderEnvHealth() {
+    const el = $('envHealthRow');
+    if (!el) return;
+    if (!window.Platforms) {
+      el.innerHTML = '<div class="col-12"><div class="ai-note">Platform module not loaded.</div></div>';
+      return;
+    }
+
+    const rows = window.Platforms.diagnose(dashRange);
+    const worst = rows.filter(r => r.score != null)[0];
+
+    el.innerHTML = rows.map(r => {
+      const s = bandStyle(r.band);
+      const c = r.counts;
+      const t = r.telemetry;
+
+      const types = r.types.slice(0, 3).map(x =>
+        '<span class="env-chip">' + esc_(rcLabel ? rcLabel(x.key) : x.key) + ' · ' + x.count + '</span>'
+      ).join('');
+
+      return '<div class="col-12 col-lg-4">' +
+        '<div class="env-card ' + s.card + '" title="' + esc_(r.summary || '') + '">' +
+          '<div class="gauge">' + gaugeSvg(r.score, s.colour) +
+            '<div class="gv"><span class="n" style="color:' + s.colour + '">' +
+              (r.score == null ? '—' : r.score) + '</span>' +
+              '<span class="u">' + (r.score == null ? 'unmapped' : '/ 100') + '</span></div>' +
+          '</div>' +
+          '<div class="flex-grow-1" style="min-width:0">' +
+            '<div class="env-name">' + esc_(r.meta.label) +
+              ' <span class="env-band ' + s.cls + '">' + s.word + '</span></div>' +
+            '<div class="ai-note">' + esc_(r.meta.blurb) + '</div>' +
+            '<div style="font-size:.74rem;margin-top:.3rem">' +
+              '<strong>' + c.total + '</strong> case(s) · ' +
+              '<span class="text-warning">' + c.open + ' open</span>' +
+              (c.p1_open ? ' · <span class="text-danger fw-semibold">' + c.p1_open + ' P1</span>' : '') +
+              (c.mttr != null ? ' · MTTR ' + c.mttr + 'm' : '') +
+              ' · ' + c.customers + ' customer(s)' +
+            '</div>' +
+            (types ? '<div style="margin-top:.15rem">' + types + '</div>' : '') +
+            (t
+              ? '<div style="margin-top:.4rem">' +
+                  utilBar('CPU', t.cpu) + utilBar('Memory', t.memory) +
+                  utilBar('Storage', t.storage) + utilBar('Network', t.network) +
+                  '<div class="ai-note" style="font-size:.62rem;margin-top:.2rem">' +
+                    '<i class="fa-solid fa-circle-info"></i> ' + esc_(t.source) +
+                  '</div>' +
+                '</div>'
+              : '') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    const note = $('envHealthNote');
+    if (note) {
+      note.textContent = worst
+        ? (worst.band === 'healthy'
+            ? 'All environments inside target. Lowest is ' + worst.meta.label +
+              ' at ' + worst.score + '/100.'
+            : worst.summary)
+        : 'No cases in this range.';
+    }
+  }
+
   function renderTrendChart(data) {
     const { buckets } = data;
     const max = Math.max(1, ...buckets.map(b => b.opened));
@@ -8794,6 +8982,7 @@
       kpi('MTTR', (c.mttr != null ? c.mttr + 'm' : '—'), 'target < 240m', (c.mttr && c.mttr > 240) ? 'warn' : 'good') +
       kpi('Open problems', c.open_problems, c.recurrences + ' recurrences', c.open_problems ? 'warn' : 'good');
 
+    renderEnvHealth();
     renderTrendChart(Analytics.trend(dashRange));
 
     const bandCls = h.band === 'healthy' ? 'text-success' : h.band === 'degraded' ? 'text-warning' : 'text-danger';
@@ -9143,7 +9332,8 @@
   function renderAIPanel(r, targetId) {
     const ev = r.evidence.map(e =>
       '<span class="ai-chip ' + e.type + '" title="' + esc_(e.why) + '">' +
-      '<i class="fa-solid fa-' + (e.type === 'kb' ? 'book' : e.type === 'problem' ? 'bullseye' : 'ticket') + '"></i>' +
+      '<i class="fa-solid fa-' + (e.type === 'kb' ? 'book' : e.type === 'problem' ? 'bullseye'
+        : e.type === 'platform' ? 'layer-group' : 'ticket') + '"></i>' +
       esc_(e.id) + '</span>').join(' ');
 
     const steps = r.actions.map(a =>

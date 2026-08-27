@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import ai, rag, tickets
+from app.api import ai, problems, rag, tickets
 from app.config import get_settings
 from app.db import engine
 from app.services.embeddings.service import get_embedding_service
@@ -65,6 +65,7 @@ app.add_middleware(
 app.include_router(tickets.router)
 app.include_router(rag.router)
 app.include_router(ai.router)
+app.include_router(problems.router)
 
 
 @app.get("/health")
@@ -83,7 +84,9 @@ def health() -> dict:
                   (SELECT COUNT(*) FROM rag_chunks WHERE embedding IS NOT NULL)  AS embedded,
                   (SELECT COUNT(*) FROM kt_specifications)                       AS kt_specifications,
                   (SELECT COUNT(*) FROM kt_hypotheses)                           AS hypotheses,
-                  (SELECT COUNT(*) FROM root_causes WHERE confidence='CONFIRMED') AS confirmed_causes
+                  (SELECT COUNT(*) FROM root_causes WHERE confidence='CONFIRMED') AS confirmed_causes,
+                  (SELECT COUNT(*) FROM problem_records)                          AS problems,
+                  (SELECT COUNT(*) FROM problem_records WHERE is_emerging)        AS emerging
             """)).one()
             counts = dict(row._mapping)
     except Exception as exc:  # noqa: BLE001
