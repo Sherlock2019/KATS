@@ -244,9 +244,20 @@ ensure_ollama() {
   local installed
   installed="$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}')"
 
+  # `ollama list` prints fully-qualified names — "phi3:latest", never "phi3" —
+  # so an exact match against the configured "phi3" always failed and every
+  # start re-pulled models that were already there. A tagged request must
+  # still match exactly; only an untagged one falls through to :latest.
+  have_model() {
+    local want="$1"
+    printf '%s\n' "$installed" | grep -qx "$want" && return 0
+    case "$want" in *:*) return 1 ;; esac
+    printf '%s\n' "$installed" | grep -qx "${want}:latest"
+  }
+
   pull_if_missing() {
     local model="$1" why="$2"
-    if printf '%s\n' "$installed" | grep -qx "$model"; then
+    if have_model "$model"; then
       ok "$model already installed"
     else
       say "pulling $model  ($why) — first run only, this can take a few minutes"
@@ -273,11 +284,16 @@ start_api() {
   export OLLAMA_BASE_URL="$OLLAMA_URL"
   export KATS_DATABASE_URL="${KATS_DATABASE_URL:-postgresql://${POSTGRES_USER:-kats}:${POSTGRES_PASSWORD:-kats_password}@127.0.0.1:${PG_PORT}/${POSTGRES_DB:-kats_rag}}"
 
-  nohup "${VENV_DIR}/bin/uvicorn" app.main:app \
+  # setsid, not just nohup. The UI server runs in the foreground, so Ctrl-C
+  # sends SIGINT to the whole process group — which killed the API too,
+  # despite the banner promising it survives. Its own session makes that
+  # promise true.
+  setsid nohup "${VENV_DIR}/bin/uvicorn" app.main:app \
       --host "$API_HOST" --port "$API_PORT" \
       --app-dir "${RAG_DIR}/backend" \
-      >"${APP_DIR}/rag-api.log" 2>&1 &
+      >"${APP_DIR}/rag-api.log" 2>&1 < /dev/null &
   echo $! > "${APP_DIR}/rag-api.pid"
+  disown 2>/dev/null || true
 
   for i in $(seq 1 45); do
     if curl -fsS "http://${API_HOST}:${API_PORT}/health" >/dev/null 2>&1; then
@@ -453,7 +469,8 @@ start_kt_ai() {
   # Its own launcher owns its migrations, seeding and health checks; calling
   # it is better than duplicating any of that here. --no-open because this
   # script opens the browser once, at the end.
-  ( cd "$KT_AI_DIR" && SKIP_PULL="${SKIP_PULL:-1}" bash ./start.sh --no-seed >"${APP_DIR}/kt-ai.log" 2>&1 ) &
+  ( cd "$KT_AI_DIR" && SKIP_PULL="${SKIP_PULL:-1}" setsid bash ./start.sh --no-seed \
+      >"${APP_DIR}/kt-ai.log" 2>&1 < /dev/null ) &
   for _ in $(seq 1 90); do
     curl -fsS "http://127.0.0.1:8100/health" >/dev/null 2>&1 && {
       ok "http://127.0.0.1:8100  (docs at /docs)"; return 0; }
@@ -528,13 +545,43 @@ else
 fi
 
 open_browser() {
-  sleep 1
-  if have wslview;                                        then wslview "$URL"
-  elif [ -n "${WSL_DISTRO_NAME:-}" ] && have explorer.exe; then
-    explorer.exe "$URL" >/dev/null 2>&1 || true   # explorer.exe always exits non-zero
-  elif have xdg-open;                                     then xdg-open "$URL" >/dev/null 2>&1
-  elif have open;                                         then open "$URL"
-  else echo "   (could not auto-open a browser — paste the URL above)"
+  # Wait for the port to actually accept a connection instead of sleeping and
+  # hoping. A blind `sleep 1` opened the browser before python had bound the
+  # socket often enough to matter, and "connection refused" looks like the
+  # app is broken rather than early.
+  local ready=0 _
+  for _ in $(seq 1 60); do
+    if (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; then
+      exec 3>&- 2>/dev/null || true
+      ready=1
+      break
+    fi
+    sleep 0.25
+  done
+  [ "$ready" -eq 1 ] || warn "server did not come up in 15s — not opening a browser"
+
+  # explorer.exe first on WSL: it hands the URL to the Windows default
+  # browser, which is the one the user is actually looking at. xdg-open in a
+  # WSL shell with no desktop session usually fails silently.
+  local how=""
+  if [ -n "${WSL_DISTRO_NAME:-}" ] && have explorer.exe; then
+    how="explorer.exe"
+    explorer.exe "$URL" >/dev/null 2>&1 || true   # always exits non-zero
+  elif have wslview; then
+    how="wslview";  wslview "$URL" >/dev/null 2>&1 || true
+  elif [ -n "${WSL_DISTRO_NAME:-}" ] && have powershell.exe; then
+    how="powershell.exe"
+    powershell.exe -NoProfile -Command "Start-Process '$URL'" >/dev/null 2>&1 || true
+  elif have xdg-open; then
+    how="xdg-open"; xdg-open "$URL" >/dev/null 2>&1 || true
+  elif have open; then
+    how="open";     open "$URL" >/dev/null 2>&1 || true
+  fi
+
+  if [ -n "$how" ]; then
+    printf '\n  \033[32m→\033[0m Opened in your browser (%s)\n    %s\n\n' "$how" "$URL"
+  else
+    printf '\n  Could not auto-open a browser. Paste this in:\n    %s\n\n' "$URL"
   fi
 }
 
