@@ -3332,6 +3332,69 @@
           </div>
         </div>
 
+        <!-- The question everyone asks first, answered before the diagrams. -->
+        <div class="card mb-3" style="border-left:4px solid #475569">
+          <div class="card-body py-3">
+            <div class="fw-bold mb-1">
+              <i class="fa-solid fa-clock"></i> When does the legacy database sync?
+            </div>
+            <p class="ai-note mb-2">
+              Three scheduled jobs and one non-event. Nothing here is triggered by a
+              user, and nothing here happens while somebody is waiting for an answer.
+            </p>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered align-middle mb-2"
+                     style="font-size:.83rem">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:11rem">Job</th><th style="width:12rem">When</th>
+                    <th>What it does</th><th style="width:9rem">Typical duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Initial backfill</strong></td>
+                    <td><span class="badge bg-dark">once, run by hand</span></td>
+                    <td>Every legacy ticket becomes a row. The closed+resolved subset
+                        also goes through the LLM and becomes searchable chunks.</td>
+                    <td>~10 min for 50,000 rows<br><span class="ai-note">+ ~6 h for
+                        ~3,000 extractions</span></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Incremental sync</strong></td>
+                    <td><span class="badge bg-primary">every 15 min</span>
+                        <div class="ai-note">or nightly — your call</div></td>
+                    <td>Asks the legacy DB <em>"what changed since I last looked?"</em>
+                        Typically a handful of tickets. Unchanged ones are skipped on a
+                        hash compare without being read.</td>
+                    <td>seconds</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Full hash sweep</strong></td>
+                    <td><span class="badge bg-secondary">weekly</span></td>
+                    <td>Re-hashes everything, to catch tickets a legacy system modified
+                        without updating its own <code>updated_at</code>. Old systems do
+                        this more than you would like.</td>
+                    <td>~10 min</td>
+                  </tr>
+                  <tr class="table-light">
+                    <td><strong>A KARL question</strong></td>
+                    <td><span class="badge bg-danger">never syncs</span></td>
+                    <td>Reads the RAG database only. No connection to the legacy system
+                        is opened, and no ticket is converted.</td>
+                    <td>0 — nothing runs</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="ai-note mb-0">
+              <strong>If CORE is frozen or being decommissioned, there is no ongoing sync
+              at all</strong> — one backfill and the pipeline is finished. The incremental
+              job only earns its place while the legacy system is still taking tickets.
+            </div>
+          </div>
+        </div>
+
         <div class="alert alert-secondary py-2" style="font-size:.86rem">
           <strong>Two rules the pipeline never breaks.</strong>
           <span class="ms-2">⛔ KARL never queries the legacy database.</span>
@@ -5910,8 +5973,9 @@
     },
 
     back: {
-      note: 'Runs on a schedule, with nobody waiting. This is the only place ' +
-            'the legacy database is ever read.',
+      note: 'Runs on a schedule — once to backfill, then every 15 minutes for ' +
+            'what changed. This is the only place the legacy database is ever read, ' +
+            'and nobody is waiting while it happens.',
       art: [
         '╔══════════════════════════════════════════════════════════════════════════════╗',
         '║                        BACK END / DATA PIPELINE                              ║',
@@ -6056,21 +6120,41 @@
         '                 └──────────────▶ rag_chunks',
         '',
         '',
-        '                        SCHEDULING MODEL',
+        '   WHEN DOES THE SYNC RUN?',
+        '   ───────────────────────',
         '',
-        '        ONE-TIME BACKFILL                 NORMAL OPERATION',
-        '        ─────────────────                 ────────────────',
-        '        all legacy tickets                changed / new only',
-        '                │                                 │',
-        '                ▼                                 ▼',
-        '        support_tickets rows              hash / watermark check',
-        '                │                                 │',
-        '                ▼                                 ▼',
-        '        selected solved tickets           changed → process',
-        '             → KT extraction              same    → skip',
+        '   ONCE                      EVERY 15 MIN              WEEKLY',
+        '   initial backfill          incremental sync          full hash sweep',
+        '   ────────────────          ────────────────          ───────────────',
+        '   all legacy tickets        "what changed since       re-hash everything,',
+        '           │                  I last looked?"          to catch tickets the',
+        '           ▼                         │                 legacy system changed',
+        '   support_tickets rows              ▼                 without touching its',
+        '           │                  hash / watermark         own updated_at',
+        '           ▼                         │                         │',
+        '   closed + resolved                 ▼                         ▼',
+        '     → KT extraction          changed → process         changed → process',
+        '           │                  same    → skip            same    → skip',
+        '           ▼',
+        '      rag_chunks',
         '',
-        '        ~50,000 rows, minutes             ~20 tickets, seconds',
-        '        ~3,000 extractions, hours',
+        '   ~50,000 rows, minutes     ~20 tickets, seconds      ~10 minutes',
+        '   ~3,000 extractions,',
+        '   about 6 hours',
+        '',
+        '',
+        '   If CORE is frozen or being decommissioned, only the first column runs.',
+        '   One backfill and the pipeline is done — the incremental job only earns',
+        '   its place while the legacy system is still taking tickets.',
+        '',
+        '',
+        '                     A KARL QUESTION SYNCS NOTHING',
+        '',
+        '        user asks ──▶ KARL ──▶ New RAG Ticket DB ──▶ answer',
+        '                                                       ',
+        '                       no legacy connection opened',
+        '                       no ticket converted',
+        '                       no job triggered',
         '',
         '',
         '      ⛔ KARL does not participate in this workflow.',
