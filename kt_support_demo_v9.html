@@ -8917,7 +8917,9 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
       flex-wrap: wrap;
     }
 
-    .kt-tabs .nav-item { flex: 1 1 auto }
+    /* Size to content, do not grow. With `flex: 1 1 auto` the seventh tab
+       wrapped onto its own row and stretched the full width of the page. */
+    .kt-tabs .nav-item { flex: 0 1 auto }
 
     .kt-tabs .nav-link {
       display: flex;
@@ -8954,8 +8956,15 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
       transform: translateY(-1px);
     }
 
+    /* The background MUST be repeated here. Bootstrap's
+       `.nav-tabs .nav-link.active` sets a white background at specificity
+       0,3,0, which outranks the 0,2,0 rule above no matter where it sits in
+       the cascade — so without this the active tab renders as an empty white
+       pill with white text on it. */
     .kt-tabs .nav-link.active {
       color: #fff;
+      background: var(--tab);
+      border-color: transparent;
       opacity: 1;
       transform: translateY(-1px);
       /* White ring + a coloured glow: the ring separates it from its
@@ -8964,6 +8973,8 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
                   0 0 0 4.5px var(--tab),
                   0 4px 10px rgba(0, 0, 0, .22);
     }
+    .kt-tabs .nav-link.active i,
+    .kt-tabs .nav-link.active .tab-label { color: #fff }
 
     /* Bootstrap's contextual badge colours all fight a coloured chip, so
        badges here are a translucent white pill instead — one rule, reads on
