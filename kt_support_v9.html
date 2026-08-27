@@ -290,6 +290,10 @@
     .kt-tabs .nav-link[data-tab="orange"] { --tab: #D97400 }  /* systemOrange, deeper */
     .kt-tabs .nav-link[data-tab="teal"]   { --tab: #1E9AAF }  /* systemTeal, deeper   */
     .kt-tabs .nav-link[data-tab="pink"]   { --tab: #FF2D55 }  /* systemPink           */
+    /* Slate, not a system colour: the palette's seven vivid hues are spoken
+       for, and this tab is plumbing rather than a workspace — a neutral reads
+       correctly next to them. White on it measures 7.5:1. */
+    .kt-tabs .nav-link[data-tab="slate"]  { --tab: #475569 }
 
     /* Dark theme keeps the same fills — see the comment above. A dimmed chip
        disappears against a dark page, so only the resting opacity lifts. */
@@ -359,6 +363,24 @@
     @media (max-width: 767.98px) {
       /* On a phone the numbers alone carry it; eleven labels do not fit. */
       .cx-wiz-chip .t { display: none }
+    }
+
+    /* The legacy-integration diagrams. Box-drawing ASCII only survives in a
+       monospace font at a fixed size, and it is wider than any laptop — so it
+       scrolls inside its own box rather than stretching the page. */
+    .legacy-diagram {
+      overflow-x: auto;
+      background: var(--bs-tertiary-bg);
+      border-radius: .5rem;
+      padding: .75rem;
+    }
+    .legacy-diagram pre {
+      margin: 0;
+      font-size: .72rem;
+      line-height: 1.25;
+      white-space: pre;
+      color: var(--bs-body-color);
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     }
 
     /* KARL's avatar. A named assistant needs a face in the transcript, or
@@ -1415,6 +1437,13 @@
           <i class="fa-solid fa-comments"></i>
           <span class="tab-label">Ask KARL</span>
           <span id="ragBadge" class="badge bg-secondary ms-1">off</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="slate" data-bs-toggle="tab" href="#legacyTab"
+           onclick="setLegacyDiagram('front')">
+          <i class="fa-solid fa-diagram-project"></i>
+          <span class="tab-label">Legacy Integration</span>
         </a>
       </li>
     </ul>
@@ -3230,6 +3259,100 @@
           </div>
 
         </div>
+      </div>
+
+      <!-- ================ LEGACY TICKETS INTEGRATION ================
+           How ~50,000 old CORE tickets reach KARL. The one thing this tab
+           exists to make unmistakable: conversion happens on a schedule,
+           before anyone asks a question. KARL never touches the legacy
+           system at request time. -->
+      <div class="tab-pane fade" id="legacyTab">
+
+        <div class="d-flex align-items-baseline gap-2 flex-wrap mt-3 mb-2">
+          <h4 class="mb-0" style="color:#475569">
+            <i class="fa-solid fa-diagram-project"></i>
+            Legacy Tickets integration with the New RAG DB
+          </h4>
+          <span class="badge bg-secondary">architecture</span>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-lg-8">
+            <div class="card h-100"><div class="card-body py-3">
+              <div class="fw-bold mb-2">How it works</div>
+              <p style="font-size:.9rem" class="mb-2">
+                The legacy CORE ticket database is <strong>copied into</strong> the new RAG
+                database ahead of time, by a scheduled job. By the time a support engineer
+                asks KARL anything, there is only <strong>one database left to query</strong>
+                — there is no federation, no live link to CORE, and no conversion happening
+                inside a request.
+              </p>
+              <p style="font-size:.9rem" class="mb-2">
+                Two passes, deliberately different in scope.
+                <strong>Every</strong> legacy ticket is imported as a row, because
+                <em>"how many issues have we had since day one"</em> is only true if the
+                2013 ticket is counted. Only the ones worth searching — closed, with a
+                resolution — go through the LLM to have their KT fields extracted and
+                become retrievable chunks. Importing everything but chunking selectively
+                is what gives accurate history <em>and</em> undiluted retrieval; a single
+                filter could not do both.
+              </p>
+              <p style="font-size:.9rem" class="mb-0">
+                Every record carries where it came from. A cause a model read out of a 2019
+                conversation and a cause an engineer verified last month are different kinds
+                of evidence, so retrieval weights them differently and KARL is required to
+                say which it is using.
+              </p>
+            </div></div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card h-100"><div class="card-body py-3">
+              <div class="fw-bold mb-2">Source &amp; trust</div>
+              <table class="table table-sm mb-0" style="font-size:.8rem">
+                <tbody>
+                  <tr><td><span class="badge bg-success">New KT RAG DB</span></td>
+                      <td class="ai-note">raised through the wizard</td>
+                      <td class="text-end fw-bold">1.00</td></tr>
+                  <tr><td><span class="badge bg-info text-dark">Legacy KB</span></td>
+                      <td class="ai-note">published article</td>
+                      <td class="text-end fw-bold">1.00</td></tr>
+                  <tr><td><span class="badge bg-primary">Legacy verified</span></td>
+                      <td class="ai-note">closure code confirms the cause</td>
+                      <td class="text-end fw-bold">0.90</td></tr>
+                  <tr><td><span class="badge bg-secondary">Legacy extracted</span></td>
+                      <td class="ai-note">cause read from the thread by a model</td>
+                      <td class="text-end fw-bold">0.65</td></tr>
+                  <tr><td><span class="badge bg-light text-dark border">Row only</span></td>
+                      <td class="ai-note">counted, never searched</td>
+                      <td class="text-end fw-bold">—</td></tr>
+                </tbody>
+              </table>
+            </div></div>
+          </div>
+        </div>
+
+        <div class="alert alert-secondary py-2" style="font-size:.86rem">
+          <strong>Two rules the pipeline never breaks.</strong>
+          <span class="ms-2">⛔ KARL never queries the legacy database.</span>
+          <span class="ms-3">⛔ No legacy conversion happens when a user asks a question.</span>
+        </div>
+
+        <div class="btn-group btn-group-sm mb-2" role="group">
+          <button type="button" class="btn btn-outline-secondary active" id="legDiagFront"
+                  onclick="setLegacyDiagram('front')">
+            <i class="fa-solid fa-bolt"></i> Front end — every request
+          </button>
+          <button type="button" class="btn btn-outline-secondary" id="legDiagBack"
+                  onclick="setLegacyDiagram('back')">
+            <i class="fa-solid fa-database"></i> Back end — scheduled pipeline
+          </button>
+        </div>
+
+        <div class="card"><div class="card-body p-2">
+          <div id="legacyDiagramNote" class="ai-note mb-2"></div>
+          <div class="legacy-diagram"><pre id="legacyDiagram"></pre></div>
+        </div></div>
       </div>
 
     </div> <!-- /tab-content -->
@@ -5641,6 +5764,330 @@
        Yanking them back down every 100ms while they are reading the evidence
        table further up is worse than not scrolling at all. */
     if (nearBottom) host.scrollTop = host.scrollHeight;
+  }
+
+  /* ================================================================== */
+  /* Legacy tickets integration — the two architecture diagrams          */
+  /*                                                                     */
+  /* Kept as text rather than an image so they stay searchable, survive  */
+  /* a theme switch, and can be copied into a design doc.                */
+  /* ================================================================== */
+  const LEGACY_DIAGRAMS = {
+    front: {
+      note: 'Runs for EVERY KARL request. Notice what is absent: any arrow ' +
+            'to the legacy database.',
+      art: [
+        '╔══════════════════════════════════════════════════════════════════════════════╗',
+        '║                          FRONT END / RUNTIME                                 ║',
+        '║                     happens for EACH KARL request                            ║',
+        '╚══════════════════════════════════════════════════════════════════════════════╝',
+        '',
+        '                     ┌─────────────────────────────┐',
+        '                     │      SUPPORT ENGINEER       │',
+        '                     │    asks KARL a question     │',
+        '                     └──────────────┬──────────────┘',
+        '                                    ▼',
+        '                             ┌─────────────┐',
+        '                             │    KARL     │',
+        '                             │   CHATBOT   │',
+        '                             └──────┬──────┘',
+        '                                    │ understand intent',
+        '                                    │ read current ticket / KT',
+        '                                    ▼',
+        '                         ┌────────────────────────┐',
+        '                         │   RETRIEVAL REQUEST    │',
+        '                         │  question · tenant     │',
+        '                         │  environment           │',
+        '                         │  product / component   │',
+        '                         │  error signature       │',
+        '                         │  current KT IS/IS NOT  │',
+        '                         └────────────┬───────────┘',
+        '                                      ▼',
+        '                              ┌──────────────┐',
+        '                              │ INTENT ROUTER│',
+        '                              └───────┬──────┘',
+        '                  ┌───────────────────┼───────────────────┐',
+        '                  ▼                   ▼                   ▼',
+        '           EXACT / ANALYTICS      SIMILARITY         EXPLANATION',
+        '           "how many?"          "seen before?"       "why DNS?"',
+        '           "show all"          "what fixed it?"    "what evidence?"',
+        '           "trend?"           "similar issue?"     "why rejected?"',
+        '                  │                   │                   │',
+        '                  ▼                   ▼                   ▼',
+        '          ┌──────────────┐   ┌──────────────────┐  ┌────────────────┐',
+        '          │   SQL QUERY  │   │   HYBRID RAG     │  │ EVIDENCE QUERY │',
+        '          │  SELECT      │   │  vector          │  │  evidence      │',
+        '          │  COUNT       │   │      +           │  │  tests         │',
+        '          │  GROUP BY    │   │  FTS / keyword   │  │  hypotheses    │',
+        '          │  AVG / trend │   │      +           │  │  root causes   │',
+        '          │  exact rows  │   │  error signature │  │  KB links      │',
+        '          │              │   │      +           │  │                │',
+        '          │              │   │  KT IS / IS NOT  │  │                │',
+        '          └──────┬───────┘   └────────┬─────────┘  └───────┬────────┘',
+        '                 ▼                    ▼                    │',
+        '      ╔══════════════════════╗ ╔══════════════════════╗    │',
+        '      ║ NEW RAG TICKET DB    ║ ║ NEW RAG TICKET DB    ║    │',
+        '      ║                      ║ ║                      ║    │',
+        '      ║ support_tickets      ║ ║ rag_chunks           ║    │',
+        '      ║                      ║ ║ pgvector · FTS       ║    │',
+        '      ║ all imported legacy  ║ ║ KT metadata          ║    │',
+        '      ║ + KT wizard tickets  ║ ║ source trust         ║    │',
+        '      ║                      ║ ║                      ║    │',
+        '      ║ EXACT TRUTH          ║ ║ SIMILARITY           ║    │',
+        '      ╚══════════┬═══════════╝ ╚══════════┬═══════════╝    │',
+        '                 │                        ▼                │',
+        '                 │                ┌──────────────────┐     │',
+        '                 │                │ CANDIDATE SCORER │     │',
+        '                 │                │  semantic match  │     │',
+        '                 │                │  keyword match   │     │',
+        '                 │                │  error match     │     │',
+        '                 │                │  metadata match  │     │',
+        '                 │                │  KT IS match     │     │',
+        '                 │                │  KT IS_NOT match │     │',
+        '                 │                │  source_trust    │     │',
+        '                 │                │  confidence      │     │',
+        '                 │                └────────┬─────────┘     │',
+        '                 └───────────┬─────────────┴───────────────┘',
+        '                             ▼',
+        '                    ┌────────────────────┐',
+        '                    │ RETRIEVAL RESPONSE │',
+        '                    │  exact numbers     │',
+        '                    │  exact rows        │',
+        '                    │  similar incidents │',
+        '                    │  relevant KBs      │',
+        '                    │  evidence          │',
+        '                    │  provenance        │',
+        '                    │  confidence        │',
+        '                    └─────────┬──────────┘',
+        '                              ▼',
+        '                         ┌─────────┐',
+        '                         │  KARL   │',
+        '                         │  LLM    │',
+        '                         └────┬────┘',
+        '                              │ reason + explain',
+        '                              │ never invent counts',
+        '                              │ never invent evidence',
+        '                              │ attribute claims',
+        '                              ▼',
+        '                  ┌─────────────────────────┐',
+        '                  │      USER ANSWER        │',
+        '                  │  exact SQL facts        │',
+        '                  │  + RAG knowledge        │',
+        '                  │  + evidence/provenance  │',
+        '                  └─────────────────────────┘',
+        '',
+        '',
+        '  EXAMPLE A — ANALYTICS                 EXAMPLE B — TROUBLESHOOTING',
+        '  ────────────────────                  ──────────────────────────',
+        '  "How many issues on prod-sg           "Windows VM build fails,',
+        '   since day 1?"                         metadata 404. Seen before?"',
+        '           │                                      │',
+        '           ▼                                      ▼',
+        '   intent = aggregate                    intent = similarity',
+        '           │                                      │',
+        '           ▼                                      ▼',
+        '   support_tickets                        rag_chunks',
+        '   COUNT = 287                            vector + FTS + KT',
+        '           │                                      │',
+        '           ▼                                      ▼',
+        '   "287 issues since 2019."              "INC-234 is the closest match.',
+        '                                          Same 404 + matching IS/IS NOT.',
+        '                                          Historical cause was X.',
+        '                                          Recommended next test is Y."',
+        '',
+        '',
+        '            ⛔  RUNTIME CONNECTION THAT DOES NOT EXIST',
+        '',
+        '                        KARL',
+        '                          │',
+        '                          ✗',
+        '                          │',
+        '                          ▼',
+        '                 LEGACY TICKET DB',
+        '',
+        '            KARL queries ONLY the New RAG Ticket DB.',
+      ].join('\n')
+    },
+
+    back: {
+      note: 'Runs on a schedule, with nobody waiting. This is the only place ' +
+            'the legacy database is ever read.',
+      art: [
+        '╔══════════════════════════════════════════════════════════════════════════════╗',
+        '║                        BACK END / DATA PIPELINE                              ║',
+        '║               runs BEFORE users ask KARL questions                           ║',
+        '╚══════════════════════════════════════════════════════════════════════════════╝',
+        '',
+        '',
+        '  IN PLAIN TERMS',
+        '  ──────────────',
+        '',
+        '        Legacy Ticket DB',
+        '              │',
+        '              │ first time: full import',
+        '              │ later: only new or changed tickets',
+        '              ▼',
+        '        Change Check',
+        '              │',
+        '              ├── unchanged → skip',
+        '              │',
+        '              └── new / changed',
+        '                      │',
+        '                      ▼',
+        '              Copy normal fields',
+        '              ticket ID, customer,',
+        '              product, severity,',
+        '              dates, status...',
+        '                      │',
+        '                      ▼',
+        '              AI converts useful',
+        '              ticket text into KT',
+        '              fields',
+        '                      │',
+        '                      ▼',
+        '              New RAG Ticket DB',
+        '              PostgreSQL',
+        '                      │',
+        '                      ├── support_tickets',
+        '                      ├── KT fields',
+        '                      ├── root causes',
+        '                      └── rag_chunks',
+        '',
+        '',
+        '  ────────────────────────────────────────────────────────────────────────────',
+        '  THE SAME THING, IN DETAIL',
+        '  ────────────────────────────────────────────────────────────────────────────',
+        '',
+        '                         ┌─────────────────────────┐',
+        '                         │    LEGACY TICKET DB     │',
+        '                         │   MySQL / Oracle / ...  │',
+        '                         │    ~50,000 old tickets  │',
+        '                         │       READ ONLY         │',
+        '                         └────────────┬────────────┘',
+        '                                      │',
+        '                      one-time backfill + incremental sync',
+        '                                      ▼',
+        '                         ┌─────────────────────────┐',
+        '                         │   CHANGE / HASH CHECK   │',
+        '                         │  new ticket?            │',
+        '                         │  changed ticket?        │',
+        '                         │  unchanged → SKIP       │',
+        '                         └────────────┬────────────┘',
+        '                                      ▼',
+        '                   ┌─────────────────────────────────┐',
+        '                   │       LEGACY RAW / BRONZE       │',
+        '                   │  source_ref                     │',
+        '                   │  source_hash                    │',
+        '                   │  original payload JSONB         │',
+        '                   │  immutable, append-only         │',
+        '                   └────────────────┬────────────────┘',
+        '                 ┌──────────────────┴────────────────────┐',
+        '                 ▼                                       ▼',
+        '       ┌───────────────────────┐             ┌────────────────────────┐',
+        '       │ DETERMINISTIC MAPPING │             │   SELECTIVE LLM KT     │',
+        '       │        NO LLM         │             │      EXTRACTOR         │',
+        '       │   EVERY ticket        │             │   only closed+resolved │',
+        '       │                       │             │                        │',
+        '       │  ticket ID            │             │  free-text thread →    │',
+        '       │  customer             │             │  problem               │',
+        '       │  product              │             │  expected / actual     │',
+        '       │  component            │             │  IS / IS NOT           │',
+        '       │  severity             │             │  changes               │',
+        '       │  timestamps           │             │  hypotheses            │',
+        '       │  status               │             │  diagnostic tests      │',
+        '       │  resolution field     │             │  root cause            │',
+        '       │                       │             │  workaround / fix      │',
+        '       │  makes COUNTS true    │             │                        │',
+        '       │                       │             │  NULL if absent        │',
+        '       │                       │             │  NEVER invent IS NOT   │',
+        '       └───────────┬───────────┘             └────────────┬───────────┘',
+        '                   └──────────────────┬───────────────────┘',
+        '                                      ▼',
+        '               ╔══════════════════════════════════════════════╗',
+        '               ║            NEW RAG TICKET DB                 ║',
+        '               ║                PostgreSQL                    ║',
+        '               ║          L1 CANONICAL SOURCE OF TRUTH        ║',
+        '               ║                                              ║',
+        '               ║   support_tickets                            ║',
+        '               ║   kt_specifications                          ║',
+        '               ║   kt_changes                                 ║',
+        '               ║   kt_hypotheses                              ║',
+        '               ║   diagnostic_tests                           ║',
+        '               ║   ticket_evidence                            ║',
+        '               ║   root_causes                                ║',
+        '               ║   kb_articles                                ║',
+        '               ║   incident_kb_link                           ║',
+        '               ╚═══════════════════╤══════════════════════════╝',
+        '                                   │ KnowledgeBuilder',
+        '                                   ▼',
+        '                     ┌────────────────────────────┐',
+        '                     │   CHUNK + EMBED + INDEX    │',
+        '                     │   semantic chunks only     │',
+        '                     │   content hash             │',
+        '                     │   metadata                 │',
+        '                     │   source_type              │',
+        '                     │   source_trust             │',
+        '                     └─────────────┬──────────────┘',
+        '                                   ▼',
+        '               ╔══════════════════════════════════════════════╗',
+        '               ║           NEW RAG RETRIEVAL INDEX            ║',
+        '               ║                                              ║',
+        '               ║   rag_chunks                                 ║',
+        '               ║   pgvector                                   ║',
+        '               ║   PostgreSQL FTS                             ║',
+        '               ║                                              ║',
+        '               ║   new_kt · legacy_verified                   ║',
+        '               ║   legacy_extracted · legacy_kb               ║',
+        '               ╚══════════════════════════════════════════════╝',
+        '',
+        '',
+        '      ┌──────────────────────┐',
+        '      │      KT WIZARD       │  new live tickets',
+        '      └──────────┬───────────┘',
+        '                 │ on submit / update',
+        '                 ├──────────────▶ support_tickets + KT tables',
+        '                 └──────────────▶ rag_chunks',
+        '',
+        '      ┌──────────────────────┐',
+        '      │      LEGACY KB       │  articles / runbooks',
+        '      └──────────┬───────────┘',
+        '                 │ import / update   (no LLM needed)',
+        '                 ├──────────────▶ kb_articles',
+        '                 └──────────────▶ rag_chunks',
+        '',
+        '',
+        '                        SCHEDULING MODEL',
+        '',
+        '        ONE-TIME BACKFILL                 NORMAL OPERATION',
+        '        ─────────────────                 ────────────────',
+        '        all legacy tickets                changed / new only',
+        '                │                                 │',
+        '                ▼                                 ▼',
+        '        support_tickets rows              hash / watermark check',
+        '                │                                 │',
+        '                ▼                                 ▼',
+        '        selected solved tickets           changed → process',
+        '             → KT extraction              same    → skip',
+        '',
+        '        ~50,000 rows, minutes             ~20 tickets, seconds',
+        '        ~3,000 extractions, hours',
+        '',
+        '',
+        '      ⛔ KARL does not participate in this workflow.',
+        '      ⛔ No legacy conversion happens when a user asks a question.',
+      ].join('\n')
+    }
+  };
+
+  function setLegacyDiagram(which) {
+    const d = LEGACY_DIAGRAMS[which] || LEGACY_DIAGRAMS.front;
+    const pre = $('legacyDiagram');
+    const note = $('legacyDiagramNote');
+    if (pre) pre.textContent = d.art;
+    if (note) note.textContent = d.note;
+    const front = $('legDiagFront'), back = $('legDiagBack');
+    if (front) front.classList.toggle('active', which === 'front');
+    if (back) back.classList.toggle('active', which === 'back');
   }
 
   /* ================================================================== */
@@ -8455,6 +8902,9 @@
     cxInitDemoSelect();
     renderDashboard();
     cxRenderSummary();
+    /* Rendered at boot, not on tab-open, so the diagram is in the DOM for
+       anyone reading the page source or printing it. */
+    setLegacyDiagram('front');
 
     /* The RAG backend is opt-in and remembered per browser. Reading the saved
        config at boot means the tab badge is honest before anyone opens it —
