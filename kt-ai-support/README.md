@@ -187,7 +187,73 @@ POST   /api/rag/reindex-all
 
 POST   /api/ai/diagnose                      POST /api/ai/next-action
 POST   /api/ai/next-question                 GET  /health
+
+GET    /api/problems                         GET  /api/problems/emerging
+GET    /api/problems/{id}                    PATCH /api/problems/{id}
+POST   /api/problems/recluster
 ```
+
+---
+
+## The problem register, and detecting what is emerging
+
+Everything above is **reactive**: it answers a question somebody asked. The
+problem register is the half that does not wait to be asked.
+
+Tickets are clustered by `error_signature_norm` — already populated on every
+row, legacy imports included — into `problem_records`. Clustering is a
+wholesale rebuild rather than an incremental update: it is one query plus a
+dictionary (61 ms over 323 tickets), and a rebuild that cannot drift beats an
+incremental one that can.
+
+**Human-owned fields survive the rebuild.** `status`, `permanent_fix`, `owner`,
+`notes` and `kb_ref` are never written by clustering — an engineer marking a
+cluster as a known error with a documented fix must not have that erased by the
+next scheduled run. There is a test for exactly this.
+
+### Every statistic carries its denominators
+
+The register reports on a corpus where some root causes were **verified by a
+human** and others were **extracted by a model from legacy free text**. Those
+are not the same evidence, and averaging them produces confident nonsense. So
+every response carries a generated sentence stating what the numbers do and do
+not support:
+
+> *"44 incidents share this signature. **None has a verified cause, so the
+> grouping is a pattern, not a finding.**"*
+>
+> *"5 incidents share this signature. 5 have a verified cause, and 1 of those 5
+> point at the same thing."*
+
+The failure mode this exists to prevent is a dashboard that shows
+`dominant_cause` next to `member_count` and lets a reader infer that all 44
+were caused by it.
+
+### Surge detection, and the alert nobody should get
+
+`GET /api/problems/emerging` compares a recent window against a baseline rate.
+A ratio **alone** is not enough at these counts. A cluster running at a steady
+1/week produces 2 in some weeks purely by chance — that is a 2.1× "spike", and
+an alert that fires on it teaches people to ignore the channel.
+
+Incident arrivals are roughly Poisson, so the noise on an expected count of λ
+is √λ. The recent count must clear **λ + 3√λ** as well as the ratio:
+
+| Baseline λ | Noise floor | Observed | Verdict |
+|---|---|---|---|
+| 0.93 / week | 3.8 | 2 | no alert — ordinary variation |
+| 0.30 / week | 2.0 | 8 | **ALERT** — real |
+
+**Multi-customer is an independent trigger.** The same fault on two or more
+tenants inside one window is a platform problem however slowly it arrives, so
+it alerts without needing an acceleration.
+
+Both the trigger that fired and the floor it cleared are persisted and
+reported, because a spread alert explained as a rate — *"1.0× surge, ALERT"* —
+reads as a broken detector and gets muted:
+
+> *"7 in the last window across 28 customers — the same fault on more than one
+> tenant, so it is a platform problem rather than a configuration one."*
 
 ---
 
@@ -249,7 +315,18 @@ cd backend
 python -m migrations.run --status
 python -m scripts.seed_demo_cases --reset
 python -m scripts.evaluate_retrieval --verbose
+python -m pytest tests/test_problem_detection.py -q    # the surge detector
 ```
+
+Rebuilding the problem register, and asking what is emerging:
+
+```bash
+curl -X POST 'localhost:8100/api/problems/recluster?window_days=7&baseline_days=90'
+curl localhost:8100/api/problems/emerging
+```
+
+Cheap enough to put on a timer — the rebuild above runs in ~60 ms over the
+whole corpus.
 
 ---
 

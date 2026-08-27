@@ -432,6 +432,58 @@ week's intake, which is the number an account review actually argues about.
 top 10 customers / issue types / infrastructure, and an **infrastructure health score** with the
 factors costing points and a prioritised remediation plan.
 
+### Environment health gauges *(v9.4)*
+
+The dashboard's fleet score is an **average**, and an average is the wrong shape for the first
+question an operator actually asks: *which environment is in trouble?* One platform at 52 and two
+above 78 reports as "76" and nobody knows where to look.
+
+So the dashboard now opens with **one round gauge per environment**, above the fleet KPIs:
+
+| | Score | Band | Cases | Peak resource | What KARL says |
+|---|---|---|---|---|---|
+| **Flex AI** | 52/100 | 🔴 act now | 38 · 11 open · 2 P1 | memory 91% | loaded on **both** axes |
+| **OpsC** | 78/100 | 🟠 heads up | 8 · 2 open · 1 P1 | memory 76% | both |
+| **Flex** | 92/100 | 🟢 healthy | 30 · 10 open · 0 P1 | storage 79% | **resource pressure only** |
+
+Each card carries the score, per-resource CPU / memory / storage / network bars, the top issue types,
+open count, P1 count and customers affected. **Three bands, and never colour alone** — every gauge
+also prints its score and a word (*healthy* / *heads up* / *act now*), because roughly 8% of men
+cannot separate the green from the orange.
+
+**Incident data and resource data are kept apart, because they are not equally trustworthy.**
+Incident counts, MTTR and severities are read from the real case store. Utilisation comes from a
+monitoring-feed **stub**: every reading carries `measured: false` and is labelled *"monitoring feed
+(demo values)"* on the card **and** inside KARL's reasoning, so the caveat survives someone pasting
+the text into a report. Swapping in a real monitoring API means replacing one function.
+
+That separation is what makes the diagnosis actionable. Every score deduction records which source
+it came from, so KARL can say which conversation to have:
+
+> *"Flex is carrying no unusual incident load; the score is resource pressure alone — storage at 79%.
+> **This is a capacity conversation, not a support one.**"*
+>
+> *"OpsC has headroom on every resource; the score is incident load — 1 P1 open."*
+>
+> *"Flex AI is loaded on both axes: 2 P1 open, and memory at 91%. **Resource pressure and failure
+> rate rising together usually means one is causing the other.**"*
+
+Three different routings — capacity, support, and *go find the causal link* — from one panel.
+The **AI infrastructure diagnostic** button leads with the worst environment rather than the fleet
+average, and emits a per-environment action for each one, split the same way.
+
+**Which components belong to which platform is an explicit table**, not a heuristic
+(`COMPONENT_PLATFORM` in `kt_platform.js`). Anything unmapped lands in `unassigned` and is **reported
+as such** — a platform total that silently absorbs unknown components is a number you cannot defend
+in a review, and KARL states the caveat when it happens.
+
+**The bands do not change with the clock.** Telemetry drifts slowly through the day so the demo does
+not look frozen, but the drift amplitude (±3) is deliberately smaller than every baseline's distance
+to its nearest threshold. At ±5 the Flex AI memory baseline crossed the 90% critical line as the
+hours passed, and the same unchanged fleet rendered orange in the morning and red after lunch — a
+dashboard whose colour depends on when you look at it is worse than one with no colour at all.
+`test_platform.js` walks all 24 hours and asserts no environment flips band.
+
 ---
 
 ## Conventions
@@ -500,6 +552,7 @@ The design goal is **fewest actions and fewest minutes to a correct answer** —
 | `kb_database.js` | KB schema, 12 seeded articles, search, dedupe, secret scrubbing |
 | `kt_data.js` | Customers, Cases, Problems (the ITIL spine) + dashboard analytics |
 | `kt_topology.js` | **v9.** Infra topology (customer → site → infra location), mermaid emitters, windowed ticket history |
+| `kt_platform.js` | **v9.4.** The platform dimension — component → environment map (Flex / OpsC / Flex AI), the resource-telemetry stub, and per-environment health scoring with every deduction tagged by source |
 | `kt_pipeline.js` | **v9.1.** The 8 stage definitions, computed progress, the loop model, the next-best-action rule, and the 10→8 migration |
 | `kt_intake.js` | **v9.2.** The customer intake contract — field list, ticket quality model, customer-safe KB lookup, and the queue the support view reads |
 | `kt_record.js` | **v9.3.** The ticket summary record — one KT row list rendered in both funnels, plus `toRagDoc()` (facets, PII stripping, per-section chunking) |
@@ -510,14 +563,33 @@ The design goal is **fewest actions and fewest minutes to a correct answer** —
 | `build_demo.js` | Bundles everything into the single standalone file (`node build_demo.js v9\|v8`) |
 | `test_topology.js` | `node test_topology.js` — dependency-free checks on the topology + history layer |
 | `test_pipeline.js` | `node test_pipeline.js` — dependency-free checks on the pipeline, the migration and the next-best-action rule |
+| `test_platform.js` | `node test_platform.js` — 46 checks on the environment gauges: the arc length matches the score, every deduction names its source, and no environment changes band across 24 hours (needs `jsdom`) |
+| `test_tabs.js` | `node test_tabs.js` — the support tab strip: order, names, one active tab, and that every tab still resolves to a real pane (needs `jsdom`) |
 | `start.sh` | Serves it and opens a browser |
 | `vendor/` | bootstrap, font-awesome and mermaid, downloaded once so the build needs no network |
 
-**Demo data:** 5 customers · 4 sites · 24 infra locations · 100+ cases · 6 Problem records ·
-12 KB articles · 10 demo tickets with
+**Demo data:** 5 customers · 4 sites · 3 environments · 24 infra locations · 100+ cases ·
+6 Problem records · 12 KB articles · 10 demo tickets with
 **all 10 action-plan steps filled** (84 done, 7 not started, 6 in progress, 3 n/a), covering every
 triage verdict — known error, recurrence, works-as-designed, new investigation. Recent activity is
 synthesised **relative to today**, so the dashboard never goes stale.
+
+**Per environment, at least 5 deliberate issues each** *(v9.4)*. The random tail draws templates
+uniformly, so an environment can come up nearly empty on a given day and its gauge then reads 100/100
+for entirely the wrong reason — **no data renders identically to no problems.** The seeded issues fix
+that, spread across severities and states so each environment shows a plausible mix rather than a
+wall of P1s.
+
+**Flex AI carries ten**, covering the failure modes an accelerator estate actually has and the IaaS
+fabric does not — Xid 79 (fallen off the bus), Xid 48 double-bit ECC with row-remap pending, NVLink
+`NCCL timeout in ncclAllReduce`, sustained thermal slowdown at 88C, DCGM queue saturation (depth 47,
+oldest pending 68m), `CUDA out of memory`, driver/CUDA mismatch after reboot, and unschedulable pods
+(`Insufficient nvidia.com/gpu`). The signatures are the real ones an engineer would grep for.
+
+They also form **one causal chain rather than ten coincidences**: GPUs lost to Xid/ECC → fewer
+allocatable GPUs → pods pending and the survivors thermally capped → inference OOMs and times out.
+That chain is precisely what KARL is supposed to be able to see, and it cannot learn to see it from
+demo data made of independent accidents.
 
 ### Rebuilding after an edit
 
@@ -534,6 +606,17 @@ bundle can't ship silently.
 node test_topology.js   # topology + history checks, no dependencies
 node test_pipeline.js   # 8-stage pipeline, 10→8 migration, next-best-action
 node test_record.js     # the summary record, and that no PII or secret reaches the RAG doc
+node test_platform.js   # environment gauges — needs jsdom, renders the built bundle headlessly
+node test_tabs.js       # support tab order, names, and that every tab opens its pane
+```
+
+The last two carry a dependency. They load `kt_support_demo_v9.html` in **jsdom** and assert against
+the rendered DOM rather than against the modules alone — the gauge arc length has to match the score
+it claims to show, and a reordered tab that no longer resolves to a pane still looks perfect in the
+source:
+
+```bash
+npm install jsdom            # or: NODE_PATH=/path/to/node_modules node test_platform.js
 ```
 
 ---
@@ -610,6 +693,15 @@ This is a **proof of concept**, honestly labelled:
   and takes several minutes per answer on the same hardware. That trade is the
   honest state of local inference on a laptop, not a bug to be tuned away.
 - The dashboard's recent activity is synthesised relative to today, so the demo never goes stale.
+- **The environment gauges' resource utilisation is a stub, and the code says so.** Nothing in KATS
+  measures CPU, memory, storage or network — there is no agent and no monitoring integration. Those
+  readings come from `Platforms.telemetry()`, which returns fixed baselines with a slow deterministic
+  drift, and every reading carries `measured: false`. The card prints *"monitoring feed (demo
+  values)"* and KARL repeats it in its reasoning, so the caveat travels with the finding. The
+  **incident** half of each gauge — case counts, open counts, P1s, MTTR, issue types, customers
+  affected — is read from the real case store and is as true as the rest of the demo data.
+  Wiring it to Prometheus, DCGM or a cloud monitoring API means replacing that one function; the
+  scoring, the bands and the diagnosis above it do not change.
 - The UI field is `severity`, but stored case and KB records still use `priority` as the schema key —
   renaming it across 100+ seeded records was not worth the risk for a PoC.
 - The **infra location** on the topology map is *derived*, not authoritative: a case stores a site and

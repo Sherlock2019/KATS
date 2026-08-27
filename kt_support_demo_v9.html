@@ -10738,6 +10738,26 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
          hairline under one of them is not a navigation bar you can read at a
          glance mid-incident. -->
     <ul class="nav nav-tabs kt-tabs mb-3" role="tablist">
+      <!-- The two architecture tabs lead. They explain how the system works
+           before the tabs that use it, and putting them last pushed them onto
+           a second row where they read as an afterthought. Neither is the
+           landing tab — "Ticket status" still holds .active, because the
+           first thing an operator wants mid-incident is the ticket, not the
+           architecture behind it. -->
+      <li class="nav-item">
+        <a class="nav-link" data-tab="violet" data-bs-toggle="tab" href="#workflowTab"
+           onclick="setWorkflowDiagram('overview')">
+          <i class="fa-solid fa-route"></i>
+          <span class="tab-label">New Support Workflow</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="slate" data-bs-toggle="tab" href="#legacyTab"
+           onclick="setLegacyDiagram('front')">
+          <i class="fa-solid fa-diagram-project"></i>
+          <span class="tab-label">Legacy Ticket DB Integration</span>
+        </a>
+      </li>
       <li class="nav-item">
         <a class="nav-link active" data-tab="blue" data-bs-toggle="tab" href="#formTab">
           <i class="fa-solid fa-clipboard-check"></i>
@@ -10790,20 +10810,6 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
           <i class="fa-solid fa-comments"></i>
           <span class="tab-label">Ask KARL</span>
           <span id="ragBadge" class="badge bg-secondary ms-1">off</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" data-tab="violet" data-bs-toggle="tab" href="#workflowTab"
-           onclick="setWorkflowDiagram('overview')">
-          <i class="fa-solid fa-route"></i>
-          <span class="tab-label">New Workflow</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" data-tab="slate" data-bs-toggle="tab" href="#legacyTab"
-           onclick="setLegacyDiagram('front')">
-          <i class="fa-solid fa-diagram-project"></i>
-          <span class="tab-label">Legacy Integration</span>
         </a>
       </li>
     </ul>
@@ -15634,7 +15640,7 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
 
     legacy: {
       note: 'Runs in the background, independently of any engineer. The ' +
-            'Legacy Integration tab has the full version of this.',
+            'Legacy Ticket DB Integration tab has the full version of this.',
       art: [
         '',
         '                       LEGACY TICKET DB',
