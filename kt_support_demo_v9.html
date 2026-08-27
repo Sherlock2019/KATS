@@ -9019,6 +9019,22 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
       .kt-tabs .nav-link.active { transform: none }
     }
 
+    /* KARL's avatar. A named assistant needs a face in the transcript, or
+       every answer reads as page furniture. */
+    .karl-avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      border-radius: 50%;
+      color: #fff;
+      background: linear-gradient(135deg, #1E9AAF, #007AFF);
+      font-size: .95rem;
+    }
+    .rag-welcome { padding: .35rem .15rem }
+
     /* The streaming caret in the RAG chat. A local model on CPU writes at
        reading speed, so a blinking cursor reads as "still going" rather than
        "stuck" — which is exactly the question the reader has. */
@@ -10037,7 +10053,7 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
         <a class="nav-link" data-tab="teal" data-bs-toggle="tab" href="#ragTab"
            onclick="ragOnOpen()">
           <i class="fa-solid fa-comments"></i>
-          <span class="tab-label">Ask the ticket base</span>
+          <span class="tab-label">Ask KARL</span>
           <span id="ragBadge" class="badge bg-secondary ms-1">off</span>
         </a>
       </li>
@@ -11760,8 +11776,9 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
 
           <div class="col-xl-8">
             <div class="ai-band mb-2">
-              <i class="fa-solid fa-database"></i>
-              <span class="fw-semibold">Ask the ticket base</span>
+              <i class="fa-solid fa-user-astronaut"></i>
+              <span class="fw-semibold">ASK KARL — Your AI Support Engineer</span>
+              <span class="ai-note ms-2">Knowledge-Augmented Resolution &amp; Learning</span>
               <span class="ai-note ms-2" id="ragModelNote">not connected</span>
               <button class="btn btn-outline-secondary btn-sm ms-auto" type="button"
                       onclick="ragClearChat()">
@@ -12732,7 +12749,7 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
       if (!noteId) return r;
       if (!r) {
         flash(noteId, 'RAG backend unreachable — the ticket is saved locally, ' +
-          'index it later from Ask the ticket base.', 'text-warning');
+          'index it later from the Ask KARL tab.', 'text-warning');
       } else {
         flash(noteId, 'Indexed: ' + r.chunks + ' sections, v' + r.doc_version +
           (r.embed_mode === 'ollama' ? '' : ' (keyword-only embeddings)'), 'text-success');
@@ -13849,7 +13866,7 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
      the escalation handover still uses it. */
 
   /* ================================================================== */
-  /* Ask the ticket base — RAG chat                                      */
+  /* KARL — Knowledge-Augmented Resolution & Learning. The RAG chat.     */
   /*                                                                     */
   /* Retrieval over PostgreSQL/pgvector, answered by a local model via   */
   /* Ollama. Support-only by construction: the customer view has no      */
@@ -14133,15 +14150,26 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
 
     if (!ragHistory.length && !pending) {
       host.innerHTML =
-        '<div class="ai-note">' +
-          '<p class="mb-2"><strong>Ask the ticket base anything support would ' +
-          'otherwise search for by hand.</strong></p>' +
-          '<p class="mb-2">Every answer is built only from tickets retrieved out of the ' +
-          'PostgreSQL store and cites them. Where the store has nothing, it says so ' +
-          'rather than guessing.</p>' +
-          '<p class="mb-0">Intake evidence answers <em>"who else hit this?"</em>. ' +
-          'Resolution evidence answers <em>"what fixed it?"</em>. Scope the search on ' +
-          'the right to ask only one of them.</p>' +
+        '<div class="rag-welcome">' +
+          '<div class="d-flex align-items-center gap-2 mb-2">' +
+            '<span class="karl-avatar"><i class="fa-solid fa-user-astronaut"></i></span>' +
+            '<div>' +
+              '<div class="fw-bold" style="font-size:1rem">Hi, I\'m KARL.</div>' +
+              '<div class="ai-note">Knowledge-Augmented Resolution &amp; Learning</div>' +
+            '</div>' +
+          '</div>' +
+          '<p class="mb-2" style="font-size:.9rem">' +
+            'I can search previous incidents, compare symptoms, identify likely causes, ' +
+            'suggest troubleshooting steps, and help you reach a verified resolution.' +
+          '</p>' +
+          '<div class="ai-note">' +
+            '<p class="mb-2">Every answer is built only from tickets retrieved out of the ' +
+            'PostgreSQL store, and cites them. Where the store has nothing, I say so ' +
+            'rather than guessing.</p>' +
+            '<p class="mb-0">Intake evidence answers <em>"who else hit this?"</em>. ' +
+            'Resolution evidence answers <em>"what fixed it?"</em>. Scope the search on ' +
+            'the right to ask only one of them.</p>' +
+          '</div>' +
         '</div>';
       return;
     }
@@ -14169,7 +14197,7 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
       return '<div class="mb-3 p-2 rounded" style="background:rgba(13,110,253,.06)">' +
         '<div class="d-flex align-items-baseline gap-2 flex-wrap">' +
           '<span class="fw-semibold" style="font-size:.85rem">' +
-            '<i class="fa-solid fa-robot"></i> Ticket base</span>' +
+            '<i class="fa-solid fa-user-astronaut"></i> KARL</span>' +
           '<span class="ai-note">' + meta + '</span>' +
         '</div>' +
         '<div style="font-size:.85rem">' + ragFormat(m.content || '') +

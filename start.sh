@@ -2,20 +2,27 @@
 # =============================================================================
 # start.sh — serve the KT Support demo, and optionally the whole AI backend.
 #
-#   ./start.sh              chooser page (offline, zero dependencies)
-#   ./start.sh kats         serve kt_support_demo_v9.html (standalone, ship this)
-#   ./start.sh v8           serve kt_support_demo.html    (previous release)
-#   ./start.sh dev          serve kt_support_v9.html      (multi-file source)
-#   ./start.sh core         serve the legacy ticket view
-#
-#   ./start.sh rag          THE FULL STACK — installs what is missing, then runs:
+#   ./start.sh              EVERYTHING. Installs what is missing, then runs:
 #                             PostgreSQL + pgvector   (docker, port 5433)
 #                             FastAPI RAG API         (uvicorn, port 8001)
-#                             Ollama + a local model  (port 11434)
-#                             the KATS UI in dev mode (port 8000)
+#                             Ollama + local models   (port 11434)
+#                             seeds the demo corpus on an empty store
+#                             serves the standalone demo (port 8000)
+#
+#   ./start.sh all          the above PLUS kt-ai-support
+#                             its FastAPI          (port 8100)
+#                             its PostgreSQL       (port 5434)
+#
+#   ./start.sh offline      no docker, no models — just serve the standalone
+#                           file. The original zero-dependency path.
+#
+#   ./start.sh chooser      the chooser page (legacy view vs KATS)
+#   ./start.sh dev          serve kt_support_v9.html (multi-file source)
+#   ./start.sh v8           serve the previous release
+#   ./start.sh core         serve the legacy ticket view
 #
 #   ./start.sh install      install/pull everything, start nothing
-#   ./start.sh stop         stop the RAG stack (Postgres container + API)
+#   ./start.sh stop         stop the stack (Postgres container + API)
 #
 #   --port 9000    serve the UI on a specific port
 #   --no-open      don't launch a browser
@@ -54,7 +61,14 @@ PAGE="$LANDING_FILE"
 PORT=8000
 OPEN_BROWSER=1
 DO_BUILD=0
-MODE="serve"          # serve | rag | install | stop
+MODE="serve"          # serve | rag | all | install | stop
+
+# Whether the caller actually chose a page or a mode. `./start.sh --no-open`
+# should still get the full default; only naming a page or a mode opts out
+# of it. Without these two flags the default could not tell "no arguments"
+# from "flags but no mode".
+PAGE_SET=0
+MODE_SET=0
 
 # --- RAG stack settings ------------------------------------------------------
 RAG_DIR="${APP_DIR}/rag"
@@ -83,21 +97,34 @@ fi
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    dev|--dev)      PAGE="$DEV_FILE"; shift ;;
-    demo|--demo)    PAGE="$DEMO_FILE"; shift ;;
-    kats|--kats)    PAGE="$DEMO_FILE"; shift ;;
-    v8|--v8)        PAGE="$DEMO_V8_FILE"; shift ;;
-    core|--core)    PAGE="core_ticket_rebuilt.html"; shift ;;
-    rag|--rag)      MODE="rag"; PAGE="$DEV_FILE"; shift ;;
-    install|--install) MODE="install"; shift ;;
-    stop|--stop)    MODE="stop"; shift ;;
+    dev|--dev)      PAGE="$DEV_FILE";     PAGE_SET=1; shift ;;
+    demo|--demo)    PAGE="$DEMO_FILE";    PAGE_SET=1; shift ;;
+    kats|--kats)    PAGE="$DEMO_FILE";    PAGE_SET=1; shift ;;
+    v8|--v8)        PAGE="$DEMO_V8_FILE"; PAGE_SET=1; shift ;;
+    core|--core)    PAGE="core_ticket_rebuilt.html"; PAGE_SET=1; shift ;;
+    chooser|--chooser) PAGE="$LANDING_FILE"; PAGE_SET=1; shift ;;
+    offline|--offline)
+      # The original zero-dependency path: serve the standalone file, start
+      # nothing. Kept because it is the only mode that needs no docker.
+      MODE="serve"; MODE_SET=1; PAGE="$DEMO_FILE"; PAGE_SET=1; shift ;;
+    rag|--rag)      MODE="rag";  MODE_SET=1; shift ;;
+    all|--all)      MODE="all";  MODE_SET=1; shift ;;
+    install|--install) MODE="install"; MODE_SET=1; shift ;;
+    stop|--stop)    MODE="stop";    MODE_SET=1; shift ;;
     -p|--port)      PORT="${2:-8000}"; shift 2 ;;
     --no-open)      OPEN_BROWSER=0; shift ;;
     -b|--build)     DO_BUILD=1; shift ;;
-    -h|--help)      sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)      sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1  (try --help)" >&2; exit 1 ;;
   esac
 done
+
+# No mode named: bring everything up. `./start.sh` should be the one command
+# that gives you a working system, not the one that gives you the least.
+[ "$MODE_SET" -eq 0 ] && MODE="rag"
+# No page named, and we are starting the stack: serve the standalone demo,
+# which is the page the RAG chat lives on.
+[ "$PAGE_SET" -eq 0 ] && [ "$MODE" != "serve" ] && PAGE="$DEMO_FILE"
 
 say()  { printf '  %s\n' "$*"; }
 step() { printf '\n  \033[1m%s\033[0m\n' "$*"; }
@@ -302,9 +329,18 @@ stop_stack() {
   if [ -d "$RAG_DIR" ] && have docker; then
     compose down && ok "postgres stopped (data volume kept)"
   fi
+
+  # `./start.sh all` can have started the second stack, and someone stopping
+  # things expects everything to stop.
+  if [ -d "${APP_DIR}/kt-ai-support" ]; then
+    ( cd "${APP_DIR}/kt-ai-support" && bash ./start.sh stop >/dev/null 2>&1 ) \
+      && ok "kt-ai-support stopped" || true
+  fi
+
   echo
-  say "The data volume survives. To wipe it:"
+  say "Data volumes survive. To wipe them:"
   say "  docker compose -f rag/docker-compose.yml down -v"
+  say "  docker compose -f kt-ai-support/docker-compose.yml down -v"
   echo
 }
 
@@ -398,9 +434,39 @@ elif [ "$PAGE" = "$DEMO_FILE" ] || [ "$PAGE" = "$LANDING_FILE" ]; then
 fi
 
 # =============================================================================
+# kt-ai-support — the second system, on its own ports (API 8100, pg 5434).
+# Only started by `./start.sh all`, because it is a separate product with its
+# own schema, corpus and launcher; bringing it up costs another container and
+# another 90 seconds of embedding on a cold store.
+# =============================================================================
+KT_AI_DIR="${APP_DIR}/kt-ai-support"
+
+start_kt_ai() {
+  [ -d "$KT_AI_DIR" ] || { warn "kt-ai-support/ not found — skipping"; return 0; }
+  step "kt-ai-support (API 8100, postgres 5434)"
+
+  if curl -fsS "http://127.0.0.1:8100/health" >/dev/null 2>&1; then
+    ok "already listening on 8100"
+    return 0
+  fi
+
+  # Its own launcher owns its migrations, seeding and health checks; calling
+  # it is better than duplicating any of that here. --no-open because this
+  # script opens the browser once, at the end.
+  ( cd "$KT_AI_DIR" && SKIP_PULL="${SKIP_PULL:-1}" bash ./start.sh --no-seed >"${APP_DIR}/kt-ai.log" 2>&1 ) &
+  for _ in $(seq 1 90); do
+    curl -fsS "http://127.0.0.1:8100/health" >/dev/null 2>&1 && {
+      ok "http://127.0.0.1:8100  (docs at /docs)"; return 0; }
+    sleep 1
+  done
+  warn "kt-ai-support did not answer in 90s — see kt-ai.log"
+  tail -n 12 "${APP_DIR}/kt-ai.log" 2>/dev/null | sed 's/^/      /'
+}
+
+# =============================================================================
 # The full stack
 # =============================================================================
-if [ "$MODE" = "rag" ]; then
+if [ "$MODE" = "rag" ] || [ "$MODE" = "all" ]; then
   [ -d "$RAG_DIR" ] || die "rag/ not found. This checkout has no backend."
   cat <<'HEAD'
 
@@ -414,6 +480,7 @@ HEAD
   ensure_ollama
   start_api || warn "continuing without the API — the UI will run in local-only mode"
   seed_demo
+  [ "$MODE" = "all" ] && start_kt_ai
   step "Backend summary"
   print_rag_health
 fi
@@ -471,7 +538,7 @@ open_browser() {
   fi
 }
 
-if [ "$MODE" = "rag" ]; then
+if [ "$MODE" = "rag" ] || [ "$MODE" = "all" ]; then
 cat <<BANNER
 
   KATS — KT AI Ticket Support, with the RAG backend live
@@ -479,11 +546,11 @@ cat <<BANNER
   UI          : $URL
   RAG API     : http://${API_HOST}:${API_PORT}      (Swagger at /docs)
   PostgreSQL  : 127.0.0.1:${PG_PORT}   db ${POSTGRES_DB:-kats_rag}
-  Ollama      : ${OLLAMA_URL}
-  Logs        : rag-api.log · ollama.log
+  Ollama      : ${OLLAMA_URL}$([ "$MODE" = "all" ] && printf '\n  kt-ai-support: http://127.0.0.1:8100  (Swagger at /docs, pg 5434)')
+  Logs        : rag-api.log · ollama.log$([ "$MODE" = "all" ] && printf ' · kt-ai.log')
 
   Turn it on in the browser (once — it is remembered):
-    Support view -> "Ask the ticket base" tab -> Backend card
+    Support view -> "Ask KARL" tab -> Backend card
       1. tick "Use the RAG backend"
       2. endpoint http://${API_HOST}:${API_PORT}
       3. "Test" should report the models
@@ -494,7 +561,7 @@ cat <<BANNER
        "Ticket summary" -> Submit. The confirmation shows what was captured
        and indexes it.
     B. Support view -> §0.0 opens on the SAME summary table, then the details.
-    C. "Ask the ticket base" -> ask what has broken before and what fixed it.
+    C. "Ask KARL" -> ask what has broken before and what fixed it.
        Every answer opens an Evidence table showing the tickets it read.
 
   Two evidence types, two questions:

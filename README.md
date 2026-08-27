@@ -363,7 +363,8 @@ writing garbage. If no embedder is reachable it falls back to a deterministic
 hashing embedding so a first run is not a dead end, and says so in `/health` and
 on the chat panel: that fallback is **keyword-only, not semantic**.
 
-**The chat box** lives in the support view, under *Ask the ticket base*. Scope it
+**KARL** — Knowledge-Augmented Resolution & Learning — is the chat box, in the
+support view under *Ask KARL*. Scope it
 to one customer or the whole fleet, and to intake / resolution / KB. The
 **Evidence table** appears before the first word of the answer — which tickets,
 which sections, why each one matched — because a retrieval answer nobody can
