@@ -10332,8 +10332,10 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
           </div>
         </div>
 
-        <div id="infraHealthPanel"></div>
-
+        <!-- Concentration lists. These are standing metrics — they are on the
+             page whether or not anyone has asked for a diagnosis — so they sit
+             above the AI panel. The diagnostic output is long and on-demand;
+             rendering it between the health card and these buried them. -->
         <div class="row g-3 mt-1">
           <div class="col-lg-4">
             <div class="border rounded p-2 h-100">
@@ -10360,6 +10362,8 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
             </div>
           </div>
         </div>
+
+        <div id="infraHealthPanel" class="mt-1"></div>
       </div>
     </details>
 
