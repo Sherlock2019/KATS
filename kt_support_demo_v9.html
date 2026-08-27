@@ -9010,6 +9010,10 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
        for, and this tab is plumbing rather than a workspace — a neutral reads
        correctly next to them. White on it measures 7.5:1. */
     .kt-tabs .nav-link[data-tab="slate"]  { --tab: #475569 }
+    /* Violet, distinct from systemIndigo by being visibly more magenta —
+       the ninth tab, and the last hue that separates cleanly from the
+       other eight at a glance. White on it measures 5.3:1. */
+    .kt-tabs .nav-link[data-tab="violet"] { --tab: #7C3AED }
 
     /* Dark theme keeps the same fills — see the comment above. A dimmed chip
        disappears against a dark page, so only the resting opacity lifts. */
@@ -10153,6 +10157,13 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
           <i class="fa-solid fa-comments"></i>
           <span class="tab-label">Ask KARL</span>
           <span id="ragBadge" class="badge bg-secondary ms-1">off</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="violet" data-bs-toggle="tab" href="#workflowTab"
+           onclick="setWorkflowDiagram('overview')">
+          <i class="fa-solid fa-route"></i>
+          <span class="tab-label">New Workflow</span>
         </a>
       </li>
       <li class="nav-item">
@@ -11975,6 +11986,54 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
           </div>
 
         </div>
+      </div>
+
+      <!-- ==================== NEW WORKFLOW ====================
+           The whole system, five views, ordered so a reader can stop at
+           whichever depth answers their question: at a glance, then one
+           ticket's life, then the full loop, then the runtime, then the
+           background sync. -->
+      <div class="tab-pane fade" id="workflowTab">
+
+        <div class="d-flex align-items-baseline gap-2 flex-wrap mt-3 mb-2">
+          <h4 class="mb-0" style="color:#7C3AED">
+            <i class="fa-solid fa-route"></i> The new workflow
+          </h4>
+          <span class="badge bg-secondary">KATS + KARL</span>
+        </div>
+
+        <div class="card mb-3"><div class="card-body py-3">
+          <p style="font-size:.9rem" class="mb-2">
+            The shape of it: a customer describes a problem, an engineer works it
+            through the KT method, KARL answers questions from everything solved
+            before, and the finished case becomes knowledge for the next ticket.
+            The loop closes — <strong>every resolved ticket makes the next one
+            cheaper</strong>, which is the only reason to structure intake this
+            carefully in the first place.
+          </p>
+          <p class="ai-note mb-0">
+            Five views below, simplest first. Stop at whichever depth answers your
+            question — they describe the same system, not five different ones.
+          </p>
+        </div></div>
+
+        <div class="btn-group btn-group-sm mb-2 flex-wrap" role="group">
+          <button type="button" class="btn btn-outline-primary active" id="wfBtnOverview"
+                  onclick="setWorkflowDiagram('overview')">1 · At a glance</button>
+          <button type="button" class="btn btn-outline-primary" id="wfBtnNew"
+                  onclick="setWorkflowDiagram('newticket')">2 · A new ticket</button>
+          <button type="button" class="btn btn-outline-primary" id="wfBtnEnd"
+                  onclick="setWorkflowDiagram('endtoend')">3 · End to end</button>
+          <button type="button" class="btn btn-outline-primary" id="wfBtnKarl"
+                  onclick="setWorkflowDiagram('karl')">4 · KARL, live</button>
+          <button type="button" class="btn btn-outline-primary" id="wfBtnLegacy"
+                  onclick="setWorkflowDiagram('legacy')">5 · Legacy sync</button>
+        </div>
+
+        <div class="card"><div class="card-body p-2">
+          <div id="workflowNote" class="ai-note mb-2"></div>
+          <div class="legacy-diagram"><pre id="workflowDiagram"></pre></div>
+        </div></div>
       </div>
 
       <!-- ================ LEGACY TICKETS INTEGRATION ================
@@ -14543,6 +14602,516 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
        Yanking them back down every 100ms while they are reading the evidence
        table further up is worse than not scrolling at all. */
     if (nearBottom) host.scrollTop = host.scrollHeight;
+  }
+
+  /* ================================================================== */
+  /* The new workflow — five views of one system, simplest first.        */
+  /*                                                                     */
+  /* Ordered by depth rather than by execution order, so a reader can    */
+  /* stop as soon as their question is answered. They describe the same  */
+  /* system; none of them is a different design.                         */
+  /* ================================================================== */
+  const WORKFLOW_DIAGRAMS = {
+    overview: {
+      note: 'The whole system on one screen. Everything else is a zoom into ' +
+            'part of this.',
+      art: [
+        '',
+        '                  ┌──────────────── CUSTOMER ────────────────┐',
+        '                  │                                         │',
+        '                  ▼                                         │',
+        '              NEW TICKET                                    │',
+        '                  │                                         │',
+        '                  ▼                                         │',
+        '            AI INTAKE ASSIST                                │',
+        '                  │                                         │',
+        '                  ▼                                         │',
+        '            SUPPORT ENGINEER                                │',
+        '                  │                                         │',
+        '                  ▼                                         │',
+        '               KT WIZARD                                    │',
+        '                  │                                         │',
+        '          ┌───────┴────────┐                                │',
+        '          ▼                ▼                                │',
+        '        KARL  ◀────  NEW RAG TICKET DB                      │',
+        '          │                ▲                                │',
+        '          │       ┌────────┴────────┐                       │',
+        '          │       │                 │                       │',
+        '          │  NEW KT DATA      LEGACY DATA                   │',
+        '          │                         ▲                       │',
+        '          │                         │                       │',
+        '          │                  BACKGROUND SYNC                │',
+        '          │                         ▲                       │',
+        '          │                         │                       │',
+        '          │                 LEGACY TICKET DB                │',
+        '          │                                                 │',
+        '          ▼                                                 │',
+        '  DIAGNOSTIC RECOMMENDATION                                 │',
+        '          │                                                 │',
+        '          ▼                                                 │',
+        '   ENGINEER TEST / FIX                                      │',
+        '          │                                                 │',
+        '          ▼                                                 │',
+        '  CONFIRMED ROOT CAUSE                                      │',
+        '          │                                                 │',
+        '          ▼                                                 │',
+        '      RESOLUTION ───────────────────────────────────────────┘',
+        '          │',
+        '          ▼',
+        '   NEW KNOWLEDGE CASE',
+        '          │',
+        '          ▼',
+        '     RAG KNOWLEDGE',
+        '          │',
+        '          ▼',
+        '   HELPS THE NEXT TICKET',
+        '',
+        '',
+        '  The loop is the point. A resolved ticket does not just close — it',
+        '  becomes retrievable knowledge, so the next engineer starts where the',
+        '  last one finished instead of at a blank page.',
+      ].join('\n')
+    },
+
+    newticket: {
+      note: 'One ticket, start to finish. Notice there is no conversion step ' +
+            'anywhere — a KT ticket is born structured.',
+      art: [
+        '',
+        '   CUSTOMER',
+        '      │',
+        '      ▼',
+        '   NEW TICKET',
+        '      │',
+        '      ▼',
+        '   KT-FRIENDLY INTAKE          the 12-step wizard',
+        '      │',
+        '      ├─ problem',
+        '      ├─ expected',
+        '      ├─ actual',
+        '      ├─ impact',
+        '      ├─ environment',
+        '      ├─ product',
+        '      └─ evidence',
+        '      │',
+        '      ▼',
+        '   support_tickets             source_type = new_kt',
+        '      │',
+        '      ▼',
+        '   SUPPORT ENGINEER',
+        '      │',
+        '      ▼',
+        '   KT WIZARD',
+        '      │',
+        '      ├─ IS / IS NOT           ◀── the discriminator legacy',
+        '      ├─ distinctions              tickets almost never have',
+        '      ├─ changes',
+        '      ├─ hypotheses',
+        '      ├─ evidence',
+        '      ├─ tests',
+        '      ├─ workaround',
+        '      ├─ root cause',
+        '      └─ resolution',
+        '      │',
+        '      ▼',
+        '   KnowledgeBuilder',
+        '      │',
+        '      ▼',
+        '   rag_chunks',
+        '      │',
+        '      ▼',
+        '   AVAILABLE TO KARL IMMEDIATELY',
+        '',
+        '',
+        '  Why this is better than a legacy ticket:',
+        '',
+        '    legacy    conversation  ──LLM──▶  guessed KT fields  ──▶  0.65 trust',
+        '    new KT    a person answered the questions            ──▶  1.00 trust',
+        '',
+        '  Nothing is inferred, so nothing can be inferred wrongly. And because',
+        '  indexing runs on every save, an OPEN ticket is already searchable —',
+        '  KARL does not wait for closure to learn from it.',
+      ].join('\n')
+    },
+
+    endtoend: {
+      note: 'The full support loop, from a customer noticing something to the ' +
+            'case becoming reusable knowledge.',
+      art: [
+        '╔══════════════════════════════════════════════════════════════════════════════╗',
+        '║                       KATS + KARL AI SUPPORT WORKFLOW                        ║',
+        '╚══════════════════════════════════════════════════════════════════════════════╝',
+        '',
+        '                                CUSTOMER',
+        '                                   │ detects a problem',
+        '                                   ▼',
+        '                    ┌──────────────────────────────┐',
+        '                    │      CUSTOMER PORTAL         │',
+        '                    │      New Ticket Wizard       │',
+        '                    │                              │',
+        '                    │  • What is wrong?            │',
+        '                    │  • Expected behaviour        │',
+        '                    │  • Actual behaviour          │',
+        '                    │  • Product / environment     │',
+        '                    │  • Error message             │',
+        '                    │  • Impact                    │',
+        '                    │  • Logs / screenshots        │',
+        '                    └───────────────┬──────────────┘',
+        '                                    │ ticket created',
+        '                                    ▼',
+        '                    ╔══════════════════════════════╗',
+        '                    ║      NEW RAG TICKET DB       ║',
+        '                    ║         PostgreSQL           ║',
+        '                    ║   support_tickets            ║',
+        '                    ║   source_type = new_kt       ║',
+        '                    ╚══════════════╤═══════════════╝',
+        '                                   ▼',
+        '                    ┌──────────────────────────────┐',
+        '                    │      AI INTAKE ASSIST        │',
+        '                    │  • summarise the problem     │',
+        '                    │  • normalise the error       │',
+        '                    │  • identify product/component│',
+        '                    │  • suggest severity          │',
+        '                    │  • detect duplicates         │',
+        '                    │  • ask the missing KT question│',
+        '                    └───────────────┬──────────────┘',
+        '                                    ▼',
+        '                     ┌────────────────────────────┐',
+        '                     │    SUPPORT INTAKE QUEUE    │',
+        '                     │  visible to L1 / L2 / L3   │',
+        '                     └─────────────┬──────────────┘',
+        '                                   ▼',
+        '                          SUPPORT ENGINEER',
+        '                                   ▼',
+        '                 ┌─────────────────────────────────┐',
+        '                 │     KT TROUBLESHOOTING WIZARD   │',
+        '                 │                                 │',
+        '                 │   1. Impact / stabilise         │',
+        '                 │   2. State the deviation        │',
+        '                 │   3. IS / IS NOT                │',
+        '                 │   4. Distinctions               │',
+        '                 │   5. Changes                    │',
+        '                 │   6. Possible causes            │',
+        '                 │   7. Evidence                   │',
+        '                 │   8. Diagnostic tests           │',
+        '                 │   9. Verify the root cause      │',
+        '                 │  10. Workaround                 │',
+        '                 │  11. Permanent fix              │',
+        '                 │  12. Prevention                 │',
+        '                 └────────────────┬────────────────┘',
+        '                                  │ engineer asks KARL',
+        '                                  ▼',
+        '                          ┌───────────────┐',
+        '                          │     KARL      │',
+        '                          │  AI COPILOT   │',
+        '                          └───────┬───────┘',
+        '                    ┌─────────────┼─────────────┐',
+        '                    ▼             ▼             ▼',
+        '               SQL QUERY      RAG SEARCH     EVIDENCE',
+        '                    │             │             │',
+        '                    ▼             ▼             ▼',
+        '            exact ticket      historical    evidence /',
+        '            facts + counts    cases + KB    tests / RCA',
+        '                    │             │             │',
+        '                    └─────────────┼─────────────┘',
+        '                                  ▼',
+        '                         ┌──────────────────┐',
+        '                         │ AI RECOMMENDATION│',
+        '                         │  • similar cases │',
+        '                         │  • likely causes │',
+        '                         │  • rejected ones │',
+        '                         │  • next best test│',
+        '                         │  • workaround    │',
+        '                         │  • relevant KB   │',
+        '                         └────────┬─────────┘',
+        '                                  ▼',
+        '                          SUPPORT ENGINEER',
+        '                       reviews, decides, approves',
+        '                                  ▼',
+        '                     ┌──────────────────────────┐',
+        '                     │     DIAGNOSTIC ACTION    │',
+        '                     │  test / rollback /       │',
+        '                     │  config change / fix     │',
+        '                     └────────────┬─────────────┘',
+        '                                  │ result stored automatically',
+        '                  ┌───────────────┴────────────────┐',
+        '                  ▼                                ▼',
+        '              NOT FIXED                          FIXED',
+        '                  │                                │',
+        '                  ▼                                ▼',
+        '       new evidence · eliminate              VERIFY RESULT',
+        '       a hypothesis · next test                    │',
+        '                  │                                ▼',
+        '                  │                    ┌───────────────────────┐',
+        '                  │                    │ CONFIRMED ROOT CAUSE  │',
+        '                  │                    │ + RESOLUTION          │',
+        '                  │                    │ + PREVENTION          │',
+        '                  │                    └───────────┬───────────┘',
+        '                  └──── back to the wizard         │',
+        '                                                   ▼',
+        '                                      ┌────────────────────────┐',
+        '                                      │     CUSTOMER UPDATE    │',
+        '                                      │  explanation           │',
+        '                                      │  workaround / fix      │',
+        '                                      │  validation            │',
+        '                                      └────────────┬───────────┘',
+        '                                                   ▼',
+        '                                          CUSTOMER CONFIRMS',
+        '                                                   ▼',
+        '                                            TICKET CLOSED',
+        '                                                   ▼',
+        '                                 ╔═════════════════════════════╗',
+        '                                 ║     KNOWLEDGE BUILDER       ║',
+        '                                 ║  the ticket becomes         ║',
+        '                                 ║  reusable diagnostic        ║',
+        '                                 ║  knowledge                  ║',
+        '                                 ╚═════════════╤═══════════════╝',
+        '                                               ▼',
+        '                                 ╔═════════════════════════════╗',
+        '                                 ║         rag_chunks          ║',
+        '                                 ║                             ║',
+        '                                 ║  PROBLEM                    ║',
+        '                                 ║  KT_SPECIFICATION           ║',
+        '                                 ║  CHANGES                    ║',
+        '                                 ║  HYPOTHESIS                 ║',
+        '                                 ║  REJECTED_HYPOTHESIS        ║',
+        '                                 ║  DIAGNOSTIC_TEST            ║',
+        '                                 ║  ROOT_CAUSE                 ║',
+        '                                 ║  WORKAROUND                 ║',
+        '                                 ║  RESOLUTION                 ║',
+        '                                 ║  PREVENTION                 ║',
+        '                                 ╚═════════════╤═══════════════╝',
+        '                                               ▼',
+        '                                        FUTURE TICKETS',
+        '                                               ▼',
+        '                                             KARL',
+        '',
+        '',
+        '  The NOT FIXED branch is not a failure path. Every eliminated',
+        '  hypothesis is a REJECTED_HYPOTHESIS chunk — search space someone',
+        '  already paid for, and the thing that stops the next engineer',
+        '  re-running a test that has already been run.',
+      ].join('\n')
+    },
+
+    karl: {
+      note: 'What happens when an engineer asks KARL something mid-incident. ' +
+            'The current ticket is added to the question automatically.',
+      art: [
+        '',
+        '  ENGINEER WORKING ON INC-2048',
+        '',
+        '  "Windows VMs fail to build. Metadata returns 404."',
+        '               │',
+        '               ▼',
+        '        ┌───────────────┐',
+        '        │     KARL      │',
+        '        └───────┬───────┘',
+        '                │ adds the CURRENT TICKET automatically',
+        '                ├── customer',
+        '                ├── environment',
+        '                ├── product',
+        '                ├── component',
+        '                ├── error signature',
+        '                └── KT specification',
+        '                      ├── WHAT IS          ├── WHAT IS NOT',
+        '                      ├── WHERE IS         ├── WHERE IS NOT',
+        '                      ├── WHEN IS          ├── WHEN IS NOT',
+        '                      └── EXTENT IS        └── EXTENT IS NOT',
+        '                                │',
+        '                                ▼',
+        '                       ┌─────────────────┐',
+        '                       │  INTENT ROUTER  │',
+        '                       └────────┬────────┘',
+        '        ┌───────────────────────┼───────────────────────┐',
+        '        ▼                       ▼                       ▼',
+        '     ANALYTICS            TROUBLESHOOTING           EXPLANATION',
+        '  "how many?"             "seen before?"            "why DNS?"',
+        '  "top cause?"            "what caused this?"       "show evidence"',
+        '  "trend?"                "what test next?"         "why reject X?"',
+        '        │                       │                       │',
+        '        ▼                       ▼                       ▼',
+        '     SQL QUERY              HYBRID RAG               EVIDENCE',
+        '        │                       │                       │',
+        '        │                  ├─ vector                ├─ logs',
+        '        │                  ├─ FTS                   ├─ tests',
+        '        │                  ├─ exact error           ├─ evidence',
+        '        │                  ├─ metadata              ├─ hypotheses',
+        '        │                  ├─ KT IS                 └─ RCA',
+        '        │                  └─ KT IS NOT                 │',
+        '        ▼                       ▼                       │',
+        '  ┌────────────────┐    ┌───────────────────┐           │',
+        '  │support_tickets │    │    rag_chunks     │           │',
+        '  │  exact truth   │    │ incidents + KB    │           │',
+        '  └───────┬────────┘    └─────────┬─────────┘           │',
+        '          └──────────────┬────────┴─────────────────────┘',
+        '                         ▼',
+        '                  ┌─────────────────┐',
+        '                  │ RESULT RANKING  │',
+        '                  │  semantic match │',
+        '                  │  keyword match  │',
+        '                  │  error match    │',
+        '                  │  metadata match │',
+        '                  │  KT match       │',
+        '                  │  source trust   │',
+        '                  │  quality        │',
+        '                  │  confidence     │',
+        '                  └────────┬────────┘',
+        '                           ▼',
+        '                   ┌────────────────┐',
+        '                   │      KARL      │',
+        '                   │   LOCAL LLM    │',
+        '                   └────────┬───────┘',
+        '                            ▼',
+        '',
+        '     "I found 4 related cases.',
+        '',
+        '      INC-1842 is the strongest match:',
+        '        ✓ same metadata 404',
+        '        ✓ Windows VMs affected',
+        '        ✓ Linux VMs unaffected',
+        '        ✓ same OpenStack component',
+        '',
+        '      Historical cause: the metadata route was missing after a',
+        '      network configuration change.',
+        '',
+        '      This is NOT yet proof for your incident.',
+        '',
+        '      Recommended next test: compare the metadata routes between',
+        '      the Windows and Linux networks."',
+        '',
+        '                            ▼',
+        '                    ENGINEER DECIDES',
+        '                            ▼',
+        '                          TEST',
+        '                            ▼',
+        '                    RESULT CAPTURED ──────▶ KARL reasons again',
+        '',
+        '',
+        '  Two lines in that answer are the whole design:',
+        '',
+        '    "Linux VMs unaffected"        the IS NOT — why this case matched',
+        '                                  and a dozen closer-sounding ones did not',
+        '',
+        '    "NOT yet proof"               a historical cause is evidence about',
+        '                                  where to look, never a finding about',
+        '                                  the incident in front of you',
+      ].join('\n')
+    },
+
+    legacy: {
+      note: 'Runs in the background, independently of any engineer. The ' +
+            'Legacy Integration tab has the full version of this.',
+      art: [
+        '',
+        '                       LEGACY TICKET DB',
+        '                      MySQL / Oracle / ...',
+        '                           READ ONLY',
+        '                              │',
+        '              ┌───────────────┴───────────────┐',
+        '              ▼                               ▼',
+        '       FIRST MIGRATION                   NORMAL SYNC',
+        '        all tickets                   new / changed only',
+        '              │                               │',
+        '              └───────────────┬───────────────┘',
+        '                              ▼',
+        '                     ┌─────────────────┐',
+        '                     │ CHANGE DETECTOR │',
+        '                     │   source id     │',
+        '                     │   updated_at    │',
+        '                     │   content hash  │',
+        '                     └────────┬────────┘',
+        '                  ┌───────────┴───────────┐',
+        '                  ▼                       ▼',
+        '              UNCHANGED              NEW / CHANGED',
+        '                  │                       │',
+        '                  ▼                       ▼',
+        '                SKIP            ┌──────────────────┐',
+        '                                │  LEGACY BRONZE   │',
+        '                                │  raw JSON        │',
+        '                                │  original hash   │',
+        '                                └────────┬─────────┘',
+        '                   ┌─────────────────────┴─────────────┐',
+        '                   ▼                                   ▼',
+        '           NORMAL DB FIELDS                        FREE TEXT',
+        '            no LLM needed                       needs the LLM',
+        '                                                            ',
+        '            ticket id                            comments',
+        '            customer                             notes',
+        '            product                              logs',
+        '            severity                             closure notes',
+        '            status',
+        '            dates',
+        '                   │                                   │',
+        '                   │                                   ▼',
+        '                   │                        ┌──────────────────┐',
+        '                   │                        │   KT EXTRACTOR   │',
+        '                   │                        │       LLM        │',
+        '                   │                        │   problem        │',
+        '                   │                        │   IS / IS NOT    │',
+        '                   │                        │   changes        │',
+        '                   │                        │   tests          │',
+        '                   │                        │   root cause     │',
+        '                   │                        │   resolution     │',
+        '                   │                        └────────┬─────────┘',
+        '                   └─────────────────┬───────────────┘',
+        '                                     ▼',
+        '                    ╔════════════════════════════╗',
+        '                    ║     NEW RAG TICKET DB      ║',
+        '                    ║        PostgreSQL          ║',
+        '                    ║   support_tickets          ║',
+        '                    ║   kt_*                     ║',
+        '                    ║   diagnostic_tests         ║',
+        '                    ║   ticket_evidence          ║',
+        '                    ║   root_causes              ║',
+        '                    ╚═════════════╤══════════════╝',
+        '                                  ▼',
+        '                         KNOWLEDGE BUILDER',
+        '                                  ▼',
+        '                    ╔════════════════════════════╗',
+        '                    ║        rag_chunks          ║',
+        '                    ║   pgvector · FTS           ║',
+        '                    ║   metadata                 ║',
+        '                    ║   source_trust             ║',
+        '                    ╚════════════════════════════╝',
+        '',
+        '',
+        '                            IMPORTANT',
+        '',
+        '                          KARL RUNTIME',
+        '                               │',
+        '                               ▼',
+        '                       NEW RAG TICKET DB',
+        '                               │',
+        '                               ▼',
+        '                            ANSWER',
+        '',
+        '',
+        '                               ✕',
+        '                               │',
+        '                               ▼',
+        '                       LEGACY TICKET DB',
+        '',
+        '        KARL NEVER queries the Legacy Ticket DB directly.',
+      ].join('\n')
+    }
+  };
+
+  const WORKFLOW_BUTTONS = {
+    overview: 'wfBtnOverview', newticket: 'wfBtnNew', endtoend: 'wfBtnEnd',
+    karl: 'wfBtnKarl', legacy: 'wfBtnLegacy'
+  };
+
+  function setWorkflowDiagram(which) {
+    const d = WORKFLOW_DIAGRAMS[which] || WORKFLOW_DIAGRAMS.overview;
+    const pre = $('workflowDiagram');
+    const note = $('workflowNote');
+    if (pre) pre.textContent = d.art;
+    if (note) note.textContent = d.note;
+    Object.entries(WORKFLOW_BUTTONS).forEach(([key, id]) => {
+      const btn = $(id);
+      if (btn) btn.classList.toggle('active', key === which);
+    });
   }
 
   /* ================================================================== */
@@ -17705,6 +18274,7 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
     /* Rendered at boot, not on tab-open, so the diagram is in the DOM for
        anyone reading the page source or printing it. */
     setLegacyDiagram('front');
+    setWorkflowDiagram('overview');
 
     /* The RAG backend is opt-in and remembered per browser. Reading the saved
        config at boot means the tab badge is honest before anyone opens it —
