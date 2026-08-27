@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.models import RagChunk, SupportTicket
 from app.services.embeddings.service import get_embedding_service
 from app.services.kt.quality import KnowledgeQualityService
+from app.services.legacy.confidence import TRUST
 from app.services.rag.knowledge_builder import KnowledgeBuilderService
 
 log = logging.getLogger("kt.indexing")
@@ -56,6 +57,11 @@ class IndexingService:
         score, _ = KnowledgeQualityService.evaluate(ticket)
         ticket.knowledge_quality_score = round(score, 2)
 
+        # Provenance travels from the ticket onto every chunk it produces, so
+        # retrieval can weight it and KARL can attribute it without a join.
+        source_type = getattr(ticket, "source_type", None) or "new_kt"
+        source_trust = TRUST.get(source_type, 1.00)
+
         built = KnowledgeBuilderService.build(ticket)
         result.built = len(built)
 
@@ -79,6 +85,8 @@ class IndexingService:
                     content=chunk.content, content_hash=digest, metadata_=chunk.metadata,
                     quality_score=round(chunk.quality_score, 2),
                     confidence_score=round(chunk.confidence_score, 2),
+                    object_type="incident", object_id=ticket.id,
+                    source_type=source_type, source_trust=source_trust,
                 )
                 db.add(row)
                 to_embed.append((row, chunk.content))
@@ -90,6 +98,10 @@ class IndexingService:
             row.metadata_ = chunk.metadata
             row.quality_score = round(chunk.quality_score, 2)
             row.confidence_score = round(chunk.confidence_score, 2)
+            row.object_type = "incident"
+            row.object_id = ticket.id
+            row.source_type = source_type
+            row.source_trust = source_trust
 
             if row.content_hash == digest and row.embedding is not None and not force:
                 result.unchanged += 1

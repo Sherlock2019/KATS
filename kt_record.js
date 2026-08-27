@@ -391,6 +391,9 @@
       ticket_id: s.ticket_id,
       customer_id: s.customer_id,
       doc_type: docType,
+      /* Everything raised through this UI is KT-native. The legacy
+         importer sets legacy_* on the records it brings in. */
+      source_type: e.source_type || 'new_kt',
       opened_at: s.opened_at || null,
       status: e.status || s.status || 'new',
       title: txt(f.p1_1).slice(0, 200) || 'Customer-reported issue',
@@ -477,6 +480,10 @@
       /* A closed case with a coded cause is an answer; anything else is a
          report. Same intake/resolution split as a live ticket. */
       doc_type: (solved && (cause || c.kb_id)) ? 'resolution' : 'intake',
+      /* A Case is the historical record — the equivalent of what the CORE
+         import produces. Closed with a coded cause or a linked article means
+         somebody established it; anything else is a thread a machine read. */
+      source_type: (solved && (cause || c.kb_id)) ? 'legacy_verified' : 'legacy_extracted',
       opened_at: c.opened_at || null,
       status: c.status || (solved ? 'Closed' : 'Open'),
       title: txt(c.title).slice(0, 200),
@@ -538,6 +545,7 @@
       ticket_id: a.kb_id,
       customer_id: SHARED_TENANT,
       doc_type: 'kb',
+      source_type: 'legacy_kb',
       opened_at: a.created_at || null,
       status: verified ? 'verified' : 'unverified',
       title: txt(a.title).slice(0, 200),

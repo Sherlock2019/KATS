@@ -5470,36 +5470,100 @@
       .replace(/\n/g, '<br>');
   }
 
+  /* Where a retrieved record came from, and how much to trust it.
+     Provenance is not decoration: a cause a model read out of a 2019
+     conversation and a cause an engineer verified last month are different
+     kinds of evidence, and support has to be able to tell at a glance. */
+  const RAG_SOURCES = {
+    new_kt:           { label: 'New KT RAG DB',  cls: 'bg-success',
+                        note: 'raised through the KT wizard' },
+    legacy_verified:  { label: 'Legacy DB',      cls: 'bg-primary',
+                        note: 'legacy ticket, closed with a verified cause' },
+    legacy_extracted: { label: 'Legacy DB',      cls: 'bg-secondary',
+                        note: 'legacy ticket, cause AI-extracted from the thread' },
+    legacy_kb:        { label: 'Legacy KB',      cls: 'bg-info text-dark',
+                        note: 'published knowledge base article' },
+    kb:               { label: 'KB article',     cls: 'bg-info text-dark',
+                        note: 'published knowledge base article' }
+  };
+
+  function ragSourceOf(e) {
+    if (e.source_type && RAG_SOURCES[e.source_type]) return RAG_SOURCES[e.source_type];
+    if (e.doc_type === 'kb') return RAG_SOURCES.kb;
+    return RAG_SOURCES.new_kt;
+  }
+
+  /**
+   * Similar past issues, one row per TICKET rather than per chunk.
+   *
+   * Chunk-level rows read as five hits when they are one case, and let a
+   * verbose ticket crowd out three relevant ones. Grouping also means the
+   * Source column can say something true about the record as a whole.
+   */
   function ragEvidenceHTML(list) {
     if (!list || !list.length) {
-      return '<div class="ai-note mt-2"><em>No matching tickets were retrieved — ' +
-             'the answer above is the model saying so.</em></div>';
+      return '<div class="ai-note mt-2"><em>Nothing in the ticket base matched — ' +
+             'the answer above is KARL saying so, not a retrieval failure.</em></div>';
     }
-    return '<details class="mt-2"><summary class="ai-note" style="cursor:pointer">' +
-        'Evidence — ' + list.length + ' section(s) from ' +
-        new Set(list.map(e => e.ticket_id)).size + ' ticket(s)</summary>' +
-      '<div class="table-responsive mt-1"><table class="table table-sm table-bordered mb-0">' +
+
+    const byTicket = new Map();
+    list.forEach(e => {
+      const key = e.ticket_id;
+      const row = byTicket.get(key) || {
+        ticket_id: key, title: e.title || '', score: 0,
+        sections: [], why: [], source: ragSourceOf(e),
+        status: e.status || '', doc_types: new Set(), content: ''
+      };
+      row.score = Math.max(row.score, e.score || 0);
+      row.sections.push(e.section);
+      row.doc_types.add(e.doc_type);
+      (e.why || '').split(' · ').forEach(w => { if (w && row.why.indexOf(w) < 0) row.why.push(w); });
+      /* Prefer a resolution extract for the summary column — "what fixed it"
+         is what the reader is scanning for. */
+      if (!row.content || e.section === 'resolution') row.content = e.content || '';
+      byTicket.set(key, row);
+    });
+
+    const rows = Array.from(byTicket.values()).sort((a, b) => b.score - a.score);
+    const top = rows[0].score || 1;
+
+    return '<div class="mt-2">' +
+      '<div class="fw-semibold mb-1" style="font-size:.82rem">' +
+        '<i class="fa-solid fa-clock-rotate-left"></i> Similar past issues — ' +
+        rows.length + ' case(s) from ' + list.length + ' matching section(s)</div>' +
+      '<div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-1">' +
         '<thead class="table-light"><tr>' +
+          '<th style="font-size:.72rem;width:4.5rem">Match</th>' +
           '<th style="font-size:.72rem">Ticket</th>' +
-          '<th style="font-size:.72rem">Type</th>' +
-          '<th style="font-size:.72rem">Section</th>' +
+          '<th style="font-size:.72rem">What it was / what fixed it</th>' +
+          '<th style="font-size:.72rem;width:9rem">Source</th>' +
           '<th style="font-size:.72rem">Why it matched</th>' +
-          '<th style="font-size:.72rem">Extract</th>' +
         '</tr></thead><tbody>' +
-        list.map(e =>
-          '<tr>' +
-            '<td style="font-size:.72rem"><strong>' + esc_(e.ticket_id) + '</strong>' +
-              '<div class="ai-note">' + esc_(String(e.title || '').slice(0, 60)) + '</div></td>' +
-            '<td><span class="badge bg-' +
-              (e.doc_type === 'resolution' ? 'success'
-                : e.doc_type === 'kb' ? 'primary' : 'secondary') + '">' +
-              esc_(e.doc_type) + '</span></td>' +
-            '<td class="ai-note">' + esc_(e.section) + '</td>' +
-            '<td class="ai-note">' + esc_(e.why || '') + '</td>' +
-            '<td class="ai-note" style="max-width:32ch">' +
-              esc_(String(e.content || '').slice(0, 180)) + '…</td>' +
-          '</tr>').join('') +
-      '</tbody></table></div></details>';
+        rows.map(r => {
+          const pct = Math.round((r.score / top) * 100);
+          const solved = r.doc_types.has('resolution') || r.doc_types.has('kb');
+          return '<tr>' +
+            '<td><span class="badge ' +
+              (pct >= 85 ? 'bg-success' : pct >= 60 ? 'bg-primary' : 'bg-secondary') +
+              '">' + pct + '%</span></td>' +
+            '<td style="font-size:.75rem"><strong>' + esc_(r.ticket_id) + '</strong>' +
+              '<div class="ai-note">' + esc_(String(r.title).slice(0, 58)) + '</div></td>' +
+            '<td class="ai-note" style="max-width:34ch">' +
+              esc_(String(r.content).replace(/\n/g, ' ').slice(0, 150)) + '…' +
+              (solved ? '' : '<div class="text-warning">no verified fix on this one</div>') +
+            '</td>' +
+            '<td><span class="badge ' + r.source.cls + '">' + esc_(r.source.label) + '</span>' +
+              '<div class="ai-note" style="font-size:.68rem">' + esc_(r.source.note) + '</div></td>' +
+            '<td class="ai-note" style="font-size:.7rem">' +
+              esc_(r.why.join(' · ') || 'text similarity') + '</td>' +
+          '</tr>';
+        }).join('') +
+      '</tbody></table></div>' +
+      '<div class="ai-note" style="font-size:.72rem">' +
+        'Match % is relative to the best hit in this search, not an absolute confidence. ' +
+        'A <span class="badge bg-secondary">Legacy DB</span> row whose cause was ' +
+        'AI-extracted from a conversation is a lead, not a verified finding.' +
+      '</div></div>';
   }
 
   function ragRenderChat(pending) {

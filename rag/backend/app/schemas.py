@@ -33,6 +33,7 @@ class TicketDoc(BaseModel):
     ticket_id: str
     customer_id: str
     doc_type: str = "intake"
+    source_type: str = "new_kt"
     opened_at: str | None = None
     status: str = "new"
     title: str | None = None

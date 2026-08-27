@@ -36,6 +36,12 @@ class RetrievalWeights(BaseSettings):
     # evaluation suite prove that claim rather than assert it.
     kt_match: float = 0.30
 
+    # How much to trust the SOURCE, as opposed to the content. Deliberately
+    # small: a verified legacy ticket with an exact signature match should
+    # still beat a half-empty KT-native one. This is a nudge, not a gate —
+    # `knowledge_quality` already does the heavy lifting on content.
+    source_trust: float = 0.10
+
     def normalised(self) -> dict[str, float]:
         raw = self.model_dump()
         total = sum(raw.values()) or 1.0
@@ -78,6 +84,29 @@ class Settings(BaseSettings):
     retrieval_max_chunk_chars: int = Field(default=1200, alias="RETRIEVAL_MAX_CHUNK_CHARS")
     retrieval_weights_json: str = Field(default="", alias="RETRIEVAL_WEIGHTS")
 
+    # --- legacy CORE ingestion ------------------------------------------------
+    # The vendor is a URL scheme, not a code path. SQLAlchemy speaks MySQL,
+    # PostgreSQL, Oracle and SQL Server, so nothing downstream branches on it.
+    legacy_database_url: str = Field(default="", alias="LEGACY_DATABASE_URL")
+    legacy_views_json: str = Field(default="", alias="LEGACY_VIEWS")
+
+    # Extraction needs far more output room than a chat reply: the schema has
+    # 8 specification cells, three lists and a nested root cause. Truncated
+    # JSON loses whatever sits late in the schema, silently.
+    extraction_max_tokens: int = Field(default=3000, alias="EXTRACTION_MAX_TOKENS")
+
+    legacy_batch_size: int = Field(default=200, alias="LEGACY_BATCH_SIZE")
+    extraction_workers: int = Field(default=4, alias="EXTRACTION_WORKERS")
+    # Bumping this is how a later pass re-extracts only what an improved
+    # extractor would actually change.
+    extractor_version: str = Field(default="kt-extract-1", alias="EXTRACTOR_VERSION")
+
+    # Only tickets clearing this bar get an LLM call and become chunks.
+    # Everything else is still imported as a row, so counts stay correct.
+    legacy_extract_min_chars: int = Field(default=400, alias="LEGACY_EXTRACT_MIN_CHARS")
+    legacy_extract_require_resolution: bool = Field(
+        default=True, alias="LEGACY_EXTRACT_REQUIRE_RESOLUTION")
+
     # --- api -----------------------------------------------------------------
     api_host: str = Field(default="127.0.0.1", alias="API_HOST")
     api_port: int = Field(default=8100, alias="API_PORT")
@@ -100,6 +129,17 @@ class Settings(BaseSettings):
             return RetrievalWeights(**json.loads(self.retrieval_weights_json))
         except (json.JSONDecodeError, TypeError, ValueError):
             return RetrievalWeights()
+
+    @property
+    def legacy_views(self) -> dict[str, str]:
+        """Override any view name, for a DBA who cannot create `v_ticket`."""
+        if not self.legacy_views_json.strip():
+            return {}
+        try:
+            value = json.loads(self.legacy_views_json)
+            return value if isinstance(value, dict) else {}
+        except json.JSONDecodeError:
+            return {}
 
     @property
     def cors_list(self) -> list[str]:

@@ -51,6 +51,11 @@ CREATE TABLE IF NOT EXISTS ticket (
     error_signature_raw  TEXT,
     error_signature_norm TEXT,
 
+    -- Where the record came from. 'new_kt' is the wizard; the legacy_*
+    -- values are set by the CORE import. Separate from quality: a
+    -- verified legacy ticket can outrank a half-empty new one.
+    source_type          TEXT NOT NULL DEFAULT 'new_kt',
+
     fields               JSONB NOT NULL DEFAULT '{}'::jsonb,
     summary              JSONB NOT NULL DEFAULT '[]'::jsonb
 );
@@ -88,6 +93,7 @@ CREATE TABLE IF NOT EXISTS ticket_chunk (
     content      TEXT NOT NULL,
     embedding    VECTOR(768),
     embed_model  TEXT,
+    source_type  TEXT NOT NULL DEFAULT 'new_kt',
     tsv          TSVECTOR GENERATED ALWAYS AS (to_tsvector('english', content)) STORED,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -118,3 +124,20 @@ CREATE TABLE IF NOT EXISTS chat_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chat_log_created ON chat_log (created_at DESC);
+
+
+-- -----------------------------------------------------------------------------
+-- Migrations for databases that already exist.
+--
+-- `CREATE TABLE IF NOT EXISTS` above does nothing to a table that is already
+-- there, so a column added later never appears on a running store. These
+-- ALTERs are what make this file genuinely re-appliable rather than only
+-- correct on an empty volume.
+-- -----------------------------------------------------------------------------
+ALTER TABLE ticket
+    ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'new_kt';
+ALTER TABLE ticket_chunk
+    ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'new_kt';
+
+CREATE INDEX IF NOT EXISTS idx_ticket_source ON ticket (source_type);
+CREATE INDEX IF NOT EXISTS idx_chunk_source  ON ticket_chunk (source_type);

@@ -6,7 +6,9 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import (
+    Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -85,6 +87,18 @@ class SupportTicket(Base):
 
     created_by: Mapped[str | None] = mapped_column(Text, nullable=True)
     assigned_to: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # --- provenance (migration 002) ------------------------------------
+    # Where this record came from, and whether a person has touched it since.
+    source_type: Mapped[str] = mapped_column(Text, default="new_kt", server_default="new_kt")
+    source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Set the moment someone edits an imported record. Re-extraction reads
+    # this and refuses — a better model is still not better than a person who
+    # read the ticket.
+    human_reviewed: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false")
+    extractor_version: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     metadata_: Mapped[dict] = mapped_column(
         "metadata", JSONB, default=dict, server_default="{}"

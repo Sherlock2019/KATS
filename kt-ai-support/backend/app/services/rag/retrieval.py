@@ -78,6 +78,8 @@ class Candidate:
 
     quality: float = 0.0
     confidence: float = 0.0
+    trust: float = 1.0
+    source_type: str = "new_kt"
 
     product: str | None = None
     component: str | None = None
@@ -211,6 +213,7 @@ class RetrievalService:
         select_cols = """
             c.id AS chunk_id, c.ticket_id, c.chunk_type, c.title, c.content,
             c.metadata, c.quality_score, c.confidence_score,
+            c.source_type, c.source_trust,
             t.ticket_number, t.product, t.component, t.environment, t.error_code,
             t.error_signature_norm, t.severity, t.status, t.root_cause_status
         """
@@ -233,6 +236,8 @@ class RetrievalService:
                         metadata=mapping["metadata"] or {},
                         quality=float(mapping["quality_score"] or 0),
                         confidence=float(mapping["confidence_score"] or 0),
+                        trust=float(mapping["source_trust"] or 1.0),
+                        source_type=mapping["source_type"] or "new_kt",
                         product=mapping["product"],
                         component=mapping["component"],
                         environment=mapping["environment"],
@@ -358,7 +363,8 @@ class RetrievalService:
                 + weights.get("error_signature", 0) * cand.signature
                 + weights.get("knowledge_quality", 0) * cand.quality
                 + weights.get("root_cause_confidence", 0) * rc_conf
-                + weights.get("kt_match", 0) * cand.kt,
+                + weights.get("kt_match", 0) * cand.kt
+                + weights.get("source_trust", 0) * cand.trust,
                 6,
             )
 
@@ -374,6 +380,14 @@ class RetrievalService:
             why.extend(kt_reasons)
             if str(cand.root_cause_status) == "CONFIRMED":
                 why.append("confirmed root cause on file")
+            # Provenance is part of "why it matched" — an engineer reading a
+            # result needs to know an AI read it out of a 2019 thread.
+            if cand.source_type == "legacy_extracted":
+                why.append("legacy ticket, AI-extracted")
+            elif cand.source_type == "legacy_verified":
+                why.append("legacy ticket, verified closure")
+            elif cand.source_type == "legacy_kb":
+                why.append("published KB article")
             cand.why = why
 
         return sorted(candidates.values(), key=lambda c: c.final, reverse=True)

@@ -110,12 +110,12 @@ def upsert_ticket(doc: dict[str, Any], chunks: list[dict[str, Any]]) -> dict[str
             cur.execute(
                 """
                 INSERT INTO ticket (
-                    ticket_id, customer_id, doc_type, title, status, opened_at,
+                    ticket_id, customer_id, doc_type, source_type, title, status, opened_at,
                     updated_at, site, service_component, category, environment,
                     severity, blast_radius, impact_trend, quality_score,
                     error_signature_raw, error_signature_norm, fields, summary
                 ) VALUES (
-                    %(ticket_id)s, %(customer_id)s, %(doc_type)s, %(title)s,
+                    %(ticket_id)s, %(customer_id)s, %(doc_type)s, %(source_type)s, %(title)s,
                     %(status)s, %(opened_at)s, NOW(), %(site)s,
                     %(service_component)s, %(category)s, %(environment)s,
                     %(severity)s, %(blast_radius)s, %(impact_trend)s,
@@ -125,6 +125,7 @@ def upsert_ticket(doc: dict[str, Any], chunks: list[dict[str, Any]]) -> dict[str
                 ON CONFLICT (ticket_id) DO UPDATE SET
                     customer_id          = EXCLUDED.customer_id,
                     doc_type             = EXCLUDED.doc_type,
+                    source_type          = EXCLUDED.source_type,
                     doc_version          = ticket.doc_version + 1,
                     title                = EXCLUDED.title,
                     status               = EXCLUDED.status,
@@ -148,6 +149,7 @@ def upsert_ticket(doc: dict[str, Any], chunks: list[dict[str, Any]]) -> dict[str
                     "ticket_id": doc["ticket_id"],
                     "customer_id": doc["customer_id"],
                     "doc_type": doc.get("doc_type") or "intake",
+                    "source_type": doc.get("source_type") or "new_kt",
                     "title": doc.get("title"),
                     "status": doc.get("status") or "new",
                     "opened_at": doc.get("opened_at"),
@@ -174,8 +176,8 @@ def upsert_ticket(doc: dict[str, Any], chunks: list[dict[str, Any]]) -> dict[str
                     """
                     INSERT INTO ticket_chunk
                         (ticket_id, customer_id, doc_type, section, content,
-                         embedding, embed_model)
-                    VALUES (%s, %s, %s, %s, %s, %s::vector, %s)
+                         embedding, embed_model, source_type)
+                    VALUES (%s, %s, %s, %s, %s, %s::vector, %s, %s)
                     """,
                     (
                         doc["ticket_id"],
@@ -185,6 +187,7 @@ def upsert_ticket(doc: dict[str, Any], chunks: list[dict[str, Any]]) -> dict[str
                         chunk["content"],
                         vector_literal(chunk["embedding"]) if chunk.get("embedding") else None,
                         chunk.get("embed_model"),
+                        doc.get("source_type") or "new_kt",
                     ),
                 )
 
@@ -234,6 +237,7 @@ lexical AS (
 SELECT f.chunk_id, f.ticket_id, f.doc_type, f.section, f.content,
        t.title, t.customer_id, t.site, t.service_component, t.environment,
        t.severity, t.status, t.opened_at, t.error_signature_raw,
+       t.source_type,
        COALESCE(1.0 / (60 + s.rank), 0) AS semantic_score,
        COALESCE(1.0 / (60 + l.rank), 0) AS lexical_score,
        COALESCE(1.0 / (60 + s.rank), 0) + COALESCE(1.0 / (60 + l.rank), 0) AS score,
@@ -292,7 +296,7 @@ def list_tickets(customer_id: str | None, limit: int) -> list[dict[str, Any]]:
     with cursor() as cur:
         cur.execute(
             """
-            SELECT ticket_id, customer_id, doc_type, title, status, opened_at,
+            SELECT ticket_id, customer_id, doc_type, source_type, title, status, opened_at,
                    site, service_component, severity, updated_at
             FROM ticket
             WHERE (%s::text IS NULL OR customer_id = %s::text)

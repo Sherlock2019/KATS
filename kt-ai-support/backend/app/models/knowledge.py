@@ -59,6 +59,16 @@ class RagChunk(Base):
     quality_score: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=0, server_default="0")
     confidence_score: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=0, server_default="0")
 
+    # Provenance. `object_type` lets a chunk belong to a KB article rather
+    # than a ticket; `source_trust` is how much to trust where it came from,
+    # kept separate from quality_score, which measures the content itself.
+    object_type: Mapped[str] = mapped_column(
+        Text, default="incident", server_default="incident")
+    object_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    source_type: Mapped[str] = mapped_column(Text, default="new_kt", server_default="new_kt")
+    source_trust: Mapped[Decimal] = mapped_column(
+        Numeric(3, 2), default=1, server_default="1.00")
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
