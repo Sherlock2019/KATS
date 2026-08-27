@@ -9019,6 +9019,56 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
       .kt-tabs .nav-link.active { transform: none }
     }
 
+    /* ===== New Ticket Wizard rail =====
+       Numbered chips rather than a progress bar: a customer needs to see how
+       many screens are left AND jump back to one, and a bar gives neither.
+       "Done" is computed from the required fields being answered, not from
+       having visited — a step you clicked past is not a step you did. */
+    .cx-wiz-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .35rem;
+      padding: .4rem;
+      border-radius: .85rem;
+      background: var(--bs-secondary-bg);
+    }
+    .cx-wiz-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      border: 0;
+      border-radius: .6rem;
+      padding: .3rem .55rem;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--bs-secondary-color);
+      background: transparent;
+      transition: background .15s ease, color .15s ease;
+    }
+    .cx-wiz-chip .n {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      font-size: .7rem; font-weight: 800;
+      color: #fff;
+      background: var(--bs-secondary-color);
+    }
+    .cx-wiz-chip:hover { background: rgba(220, 53, 69, .1); color: var(--cust) }
+    .cx-wiz-chip.done .n { background: #1DA54B }
+    .cx-wiz-chip.done    { color: #1DA54B }
+    .cx-wiz-chip.active {
+      color: #fff;
+      background: var(--cust);
+    }
+    .cx-wiz-chip.active .n { background: rgba(255, 255, 255, .3) }
+
+    @media (max-width: 767.98px) {
+      /* On a phone the numbers alone carry it; eleven labels do not fit. */
+      .cx-wiz-chip .t { display: none }
+    }
+
     /* KARL's avatar. A named assistant needs a face in the transcript, or
        every answer reads as page furniture. */
     .karl-avatar {
@@ -9770,7 +9820,7 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
         <li class="nav-item"><a class="nav-link active" data-tab="red" href="#cxRaiseTab"
           data-bs-toggle="tab" onclick="cxTab('raise')">
           <i class="fa-solid fa-pen-to-square"></i>
-          <span class="tab-label">Raise a ticket</span></a></li>
+          <span class="tab-label">New Ticket Wizard</span></a></li>
         <li class="nav-item"><a class="nav-link" data-tab="blue" href="#cxMineTab"
           data-bs-toggle="tab" onclick="cxTab('mine')">
           <i class="fa-solid fa-list-check"></i>
@@ -9807,6 +9857,11 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
                  two sides apart from the two sides having diverged. -->
             <div id="cxLinkNote" class="ai-note mt-1 d-none"></div>
           </div>
+
+          <!-- The wizard rail. Built at boot by cxBuildWizard(), which slices
+               the form below into one screen per KT step. -->
+          <div id="cxWizardNav" class="cx-wiz-nav mb-3"></div>
+          <div id="cxWizardHead" class="mb-2"></div>
 
           <!-- Your details: the handful of §0 fields a customer owns. The rest
                of the form is the real KT sections, cloned in below. -->
@@ -9850,10 +9905,23 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
             </div>
           </div>
 
+          <!-- Wizard controls. Submit is hidden until the last step, so the
+               only way to reach it is through the KT sequence — which is the
+               point of putting a wizard here at all. -->
           <div class="d-flex gap-2 mt-3 flex-wrap sticky-actions py-2 align-items-center">
-            <button class="btn btn-success btn-lg" type="button" onclick="cxSubmit()" id="cxSubmit">
+            <button class="btn btn-outline-secondary" type="button" id="cxBack"
+                    onclick="cxStepBack()">
+              <i class="fa-solid fa-arrow-left"></i> Back
+            </button>
+            <button class="btn btn-primary btn-lg" type="button" id="cxNext"
+                    onclick="cxStepNext()">
+              Next <i class="fa-solid fa-arrow-right"></i>
+            </button>
+            <button class="btn btn-success btn-lg d-none" type="button" onclick="cxSubmit()"
+                    id="cxSubmit">
               <i class="fa-solid fa-paper-plane"></i> Submit ticket
             </button>
+            <span class="ai-note" id="cxStepNote"></span>
             <button class="btn btn-outline-danger ms-auto" type="button" onclick="cxReset()">
               <i class="fa-solid fa-eraser"></i> Clear
             </button>
@@ -14445,6 +14513,236 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
     host.addEventListener('change', cxTouched);
   }
 
+  /* ==================================================================
+   * The New Ticket Wizard.
+   *
+   * The customer form already contains the whole KT specification — it is
+   * the support form's own §1/§5/§6/§7/§8 markup, cloned. As one page it is
+   * a wall: a customer scrolls, fills the boxes they understand, and skips
+   * the two that actually discriminate (what is NOT affected, and what
+   * changed).
+   *
+   * The wizard does not add fields. It slices the SAME markup into one
+   * screen per KT step and walks the customer through them in the order the
+   * method wants: goal → WHAT → WHERE → WHEN → TREND → evidence → changes →
+   * what you tried → access → review.
+   *
+   * §1 is split further, by its own h6 sub-headers, because §1 *is* the KT
+   * specification and collapsing it into a single "the problem" screen would
+   * put the whole method back on one page.
+   * ================================================================== */
+  let cxSteps = [];
+  let cxStep = 0;
+  let cxWizardBuilt = false;
+
+  /* One line of "why this screen exists", per step. Matched on the section
+     number so a renamed header does not silently lose its blurb. */
+  const CX_STEP_HINTS = [
+    [/^Your details/,  'Who you are, which project, and how we reach you while we work it.'],
+    [/^1\.0/, 'What you were trying to achieve — the goal, not the error.'],
+    [/^1\.1/, 'The deviation: what should happen, what actually happens, and the exact error. ' +
+              'The "broken vs working" pair is the single most useful thing on this form.'],
+    /* 1.2.7 is matched before 1.2 — it is a sub-section of it and gets its
+       own screen, so it needs its own line rather than inheriting "where". */
+    [/^1\.2\.7/, 'How much is affected. The items you leave out become the ' +
+                 'IS NOT set, which is what a cause has to explain.'],
+    [/^1\.2/, 'Where it is failing — site, node, component.'],
+    [/^1\.3/, 'When it started, how often, and the last time it definitely worked. ' +
+              'This brackets the change that broke it.'],
+    [/^1\.4/, 'How it behaves over time, and what is NOT affected. ' +
+              'A cause has to explain why the healthy one is healthy.'],
+    [/^5\./,  'Logs, the exact error output, and how to reproduce it.'],
+    [/^6\./,  'What changed just before it started. Most faults are a change.'],
+    [/^7\./,  'What you have already tried, so we do not repeat it.'],
+    [/^8\./,  'How we get in, and what we must not touch.'],
+    [/^Review/, 'Everything you told us, in one table. Check it, then send.'],
+  ];
+
+  function cxHintFor(label) {
+    const hit = CX_STEP_HINTS.find(([re]) => re.test(label));
+    return hit ? hit[1] : '';
+  }
+
+  /** Split one cloned .kt-body at its h6 boundaries into several bodies. */
+  function cxSplitByH6(body) {
+    const groups = [];
+    let current = null;
+
+    Array.from(body.childNodes).forEach(node => {
+      const isHeading = node.nodeType === 1 && node.tagName === 'H6';
+      if (isHeading || !current) {
+        const wrap = document.createElement('div');
+        wrap.className = body.className;
+        current = {
+          label: isHeading ? node.textContent.trim() : '',
+          wrap: wrap,
+        };
+        groups.push(current);
+      }
+      current.wrap.appendChild(node);
+    });
+
+    /* Content before the first h6 (the section's own intro) belongs to the
+       first real group rather than to a screen of its own. */
+    if (groups.length > 1 && !groups[0].label) {
+      const orphan = groups.shift();
+      while (orphan.wrap.firstChild) {
+        groups[0].wrap.insertBefore(orphan.wrap.firstChild, groups[0].wrap.firstChild);
+      }
+    }
+
+    /* Put the new bodies where the original stood, then drop it. Without
+       this the wraps stay detached and the caller's insertBefore() has no
+       parent to insert into. */
+    const parent = body.parentNode;
+    groups.forEach(g => parent.insertBefore(g.wrap, body));
+    parent.removeChild(body);
+
+    return groups;
+  }
+
+  function cxBuildWizard() {
+    if (cxWizardBuilt) return;
+    const host = $('cxFormHost');
+    const basics = $('cxBasics');
+    const summary = $('cxSummaryCard');
+    const nav = $('cxWizardNav');
+    if (!host || !basics || !summary || !nav) return;
+
+    cxSteps = [];
+    const add = (label, nodes) => cxSteps.push({ label, nodes, hint: cxHintFor(label) });
+
+    add('Your details', [basics]);
+
+    const kids = Array.from(host.children);
+    for (let i = 0; i < kids.length; i++) {
+      const header = kids[i];
+      if (!header.classList || !header.classList.contains('section-header')) continue;
+      const body = kids[i + 1];
+      if (!body || !body.classList.contains('kt-body')) continue;
+      const label = header.textContent.trim();
+
+      if (/^1\./.test(label)) {
+        /* §1 is the KT specification itself — one screen per sub-section. */
+        cxSplitByH6(body).forEach((group, index) => {
+          const nodes = index === 0 ? [header, group.wrap] : [group.wrap];
+          add(group.label || label, nodes);
+        });
+      } else {
+        add(label, [header, body]);
+      }
+      i++;                                     // skip the body we just consumed
+    }
+
+    add('Review & submit', [summary]);
+
+    /* Wrap each step's nodes in a panel, in place. Wrapping rather than
+       moving keeps document order, so a draft restore or a demo fill still
+       finds every field exactly where it was. */
+    cxSteps.forEach((step, index) => {
+      const panel = document.createElement('div');
+      panel.className = 'cx-step';
+      panel.setAttribute('data-cx-step', String(index));
+      step.nodes[0].parentNode.insertBefore(panel, step.nodes[0]);
+      step.nodes.forEach(n => panel.appendChild(n));
+      step.panel = panel;
+    });
+
+    nav.innerHTML = cxSteps.map((s, i) =>
+      '<button type="button" class="cx-wiz-chip" data-cx-goto="' + i + '" ' +
+      'onclick="cxGoStep(' + i + ')">' +
+        '<span class="n">' + (i + 1) + '</span>' +
+        '<span class="t">' + esc_(cxShortLabel(s.label)) + '</span>' +
+      '</button>').join('');
+
+    cxWizardBuilt = true;
+    cxGoStep(0);
+  }
+
+  /** "1.1 WHAT — Deviation From Normal Behavior" -> "WHAT".
+      "5. Evidence & Reproduction"                -> "Evidence & Reproduction". */
+  function cxShortLabel(label) {
+    let text = String(label).replace(/^\d+(?:\.\d+)*\.?\s+/, '');
+    text = text.split(/\s+[—–]\s+/)[0].trim();
+    return text.length > 22 ? text.slice(0, 21) + '…' : text;
+  }
+
+  /** Required intake fields that live on this step and are still empty. */
+  function cxStepGaps(index) {
+    const step = cxSteps[index];
+    if (!step) return [];
+    return (Intake.ALL_FIELDS || [])
+      .filter(f => f.required)
+      .filter(f => {
+        const el = $(CX + f.id) || $(f.id);
+        return el && step.panel.contains(el) && !String(el.value || '').trim();
+      });
+  }
+
+  function cxStepComplete(index) {
+    return cxStepGaps(index).length === 0;
+  }
+
+  function cxGoStep(index) {
+    if (!cxSteps.length) return;
+    cxStep = Math.max(0, Math.min(index, cxSteps.length - 1));
+
+    cxSteps.forEach((s, i) => s.panel.classList.toggle('d-none', i !== cxStep));
+
+    const last = cxStep === cxSteps.length - 1;
+    $('cxBack').classList.toggle('d-none', cxStep === 0);
+    $('cxNext').classList.toggle('d-none', last);
+    $('cxSubmit').classList.toggle('d-none', !last);
+
+    const step = cxSteps[cxStep];
+    $('cxWizardHead').innerHTML =
+      '<div class="fw-bold" style="font-size:1.05rem">' +
+        'Step ' + (cxStep + 1) + ' of ' + cxSteps.length + ' — ' + esc_(step.label) +
+      '</div>' +
+      (step.hint ? '<div class="ai-note">' + esc_(step.hint) + '</div>' : '');
+
+    cxRefreshWizardNav();
+    if (last) cxRenderSummary();
+    $('cxWizardNav').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function cxRefreshWizardNav() {
+    const nav = $('cxWizardNav');
+    if (!nav || !cxSteps.length) return;
+    Array.from(nav.querySelectorAll('[data-cx-goto]')).forEach(btn => {
+      const i = Number(btn.getAttribute('data-cx-goto'));
+      btn.classList.toggle('active', i === cxStep);
+      /* "Done" means the required fields on that screen are answered — not
+         that it was visited. A step you clicked past is not a step you did. */
+      btn.classList.toggle('done', i !== cxStep && cxStepComplete(i));
+    });
+
+    const gaps = cxStepGaps(cxStep);
+    const note = $('cxStepNote');
+    if (note) {
+      note.className = 'ai-note' + (gaps.length ? ' text-danger' : '');
+      note.textContent = gaps.length
+        ? 'Still needed here: ' + gaps.map(g => g.label).join(', ')
+        : '';
+    }
+  }
+
+  function cxStepNext() {
+    const gaps = cxStepGaps(cxStep);
+    if (gaps.length) {
+      /* Blocking on required fields is the whole reason this is a wizard and
+         not a set of tabs. Move the cursor to the first gap rather than only
+         complaining about it. */
+      cxRefreshWizardNav();
+      const el = $(CX + gaps[0].id) || $(gaps[0].id);
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+      return;
+    }
+    cxGoStep(cxStep + 1);
+  }
+
+  function cxStepBack() { cxGoStep(cxStep - 1); }
+
   function cxAddRow(bodyId, kind) {
     const tb = $(bodyId);
     if (!tb) return;
@@ -14501,6 +14799,7 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
     const f = cxFields();
     cxRenderQuality(f);
     cxRenderSummary();
+    cxRefreshWizardNav();
   }
 
   /** The basics card is generated; everything below it is cloned KT markup. */
@@ -14600,6 +14899,9 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
   function cxTouched() {
     cxRenderQuality(cxFields());
     cxRenderSummary();
+    /* Keeps the rail's done-marks and the "still needed here" line honest
+       while the customer types, rather than only when they hit Next. */
+    cxRefreshWizardNav();
     clearTimeout(cxDraftTimer);
     cxDraftTimer = setTimeout(() => {
       /* One place answers "what do we already know about this" — the
@@ -14641,7 +14943,21 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
     cxLinkedTicketId = '';
     if ($('cxLinkNote')) $('cxLinkNote').classList.add('d-none');
     $('cxSubmitted').classList.add('d-none');
+    cxShowWizard(true);
+    cxGoStep(0);
     cxRender();
+  }
+
+  /** Hide the whole wizard (rail, panels, controls) while the confirmation
+      is on screen — a submitted ticket has no "Next". */
+  function cxShowWizard(show) {
+    ['cxWizardNav', 'cxWizardHead'].forEach(id => {
+      const el = $(id);
+      if (el) el.classList.toggle('d-none', !show);
+    });
+    cxSteps.forEach((s, i) => s.panel.classList.toggle('d-none', !show || i !== cxStep));
+    const bar = $('cxNext') ? $('cxNext').closest('.sticky-actions') : null;
+    if (bar) bar.classList.toggle('d-none', !show);
   }
 
   function cxInitDemoSelect() {
@@ -14762,12 +15078,20 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
             esc_(gaps[k].join(', ')) + '</li>').join('') +
           '</ul>' +
         '</div>';
-      // Put the cursor on the first thing that is actually missing.
+      /* Put the cursor on the first thing that is actually missing — and, in
+         the wizard, first go back to the STEP it lives on. Focusing a field
+         inside a hidden panel would scroll to nothing. */
       const firstId = Intake.ALL_FIELDS.find(x =>
         x.required && !String(f[x.id] || '').trim());
       const el = firstId ? $(CX + firstId.id) : null;
-      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
-      else $('cxSubmitted').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (el) {
+        const owner = cxSteps.findIndex(s => s.panel && s.panel.contains(el));
+        if (owner >= 0 && owner !== cxStep) cxGoStep(owner);
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus();
+      } else {
+        $('cxSubmitted').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
     $('cxSubmitted').classList.add('d-none');
@@ -14829,6 +15153,7 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
             '\'), null, 2))"><i class="fa-solid fa-file-export"></i> Download JSON</button>' +
         '</div>' +
       '</div>';
+    cxShowWizard(false);
     $('cxSubmitted').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     /* Ship it to the RAG store, if one is configured. Fire-and-report: the
@@ -16769,6 +17094,8 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
        with the .kt-body that wrapSections() creates for it. */
     cxRenderBasics();
     cxBuildForm();
+    /* After cxBuildForm(), which is what the wizard slices up. */
+    cxBuildWizard();
     cxInitDemoSelect();
     renderDashboard();
     cxRenderSummary();
