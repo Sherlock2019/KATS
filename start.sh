@@ -77,6 +77,39 @@ API_HOST="${KATS_API_HOST:-127.0.0.1}"
 API_PORT="${KATS_API_PORT:-8001}"
 PG_PORT="${POSTGRES_PORT:-5433}"
 OLLAMA_URL="${OLLAMA_BASE_URL:-http://127.0.0.1:11434}"
+
+# --- public host (EC2) -------------------------------------------------------
+# PUBLIC_HOST is where a *browser* reaches this machine: set it explicitly, or
+# it is auto-detected on EC2 through the instance metadata service (IMDSv2),
+# falling back to localhost.
+#
+# Two addresses stay deliberately separate:
+#   API_HOST  where THIS script reaches the RAG API (health checks, seeding) --
+#             always loopback, it runs on this machine
+#   API_BIND  where the RAG API listens. The page's JavaScript calls the API
+#             straight from the visitor's browser, so on a public host it must
+#             listen on all interfaces.
+# BIND_ADDR is the same choice for the static page server.
+detect_public_host() {
+  local token host
+  token="$(curl -fsS --max-time 1 -X PUT 'http://169.254.169.254/latest/api/token' \
+    -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' 2>/dev/null || true)"
+  [ -n "$token" ] || return 0
+  host="$(curl -fsS --max-time 2 -H "X-aws-ec2-metadata-token: $token" \
+    'http://169.254.169.254/latest/meta-data/public-ipv4' 2>/dev/null || true)"
+  [ -n "$host" ] || host="$(curl -fsS --max-time 2 -H "X-aws-ec2-metadata-token: $token" \
+    'http://169.254.169.254/latest/meta-data/public-hostname' 2>/dev/null || true)"
+  printf '%s' "$host"
+}
+PUBLIC_HOST="${PUBLIC_HOST:-$(detect_public_host)}"
+PUBLIC_HOST="${PUBLIC_HOST:-localhost}"
+if [ "$PUBLIC_HOST" = "localhost" ] || [ "$PUBLIC_HOST" = "127.0.0.1" ]; then
+  BIND_ADDR="${BIND_ADDR:-127.0.0.1}"
+  API_BIND="${KATS_API_BIND:-$API_HOST}"
+else
+  BIND_ADDR="${BIND_ADDR:-0.0.0.0}"
+  API_BIND="${KATS_API_BIND:-0.0.0.0}"
+fi
 # phi3 by default: 2.2 GB and ~1 minute per grounded answer on CPU, where
 # gemma4 (9.6 GB) takes several. Set KATS_LLM_MODEL=gemma4:latest to trade
 # speed for reasoning.
@@ -289,7 +322,7 @@ start_api() {
   # despite the banner promising it survives. Its own session makes that
   # promise true.
   setsid nohup "${VENV_DIR}/bin/uvicorn" app.main:app \
-      --host "$API_HOST" --port "$API_PORT" \
+      --host "$API_BIND" --port "$API_PORT" \
       --app-dir "${RAG_DIR}/backend" \
       >"${APP_DIR}/rag-api.log" 2>&1 < /dev/null &
   echo $! > "${APP_DIR}/rag-api.pid"
@@ -534,12 +567,12 @@ while port_busy "$PORT"; do
 done
 [ "$PORT" != "$START_PORT" ] && echo "Port $START_PORT busy, using $PORT instead."
 
-URL="http://localhost:$PORT/$PAGE"
+URL="http://${PUBLIC_HOST}:$PORT/$PAGE"
 
 if have python3; then
-  SERVE=(python3 -m http.server "$PORT" --bind 127.0.0.1)
+  SERVE=(python3 -m http.server "$PORT" --bind "$BIND_ADDR")
 elif have npx; then
-  SERVE=(npx --yes http-server -p "$PORT" -a 127.0.0.1 --silent)
+  SERVE=(npx --yes http-server -p "$PORT" -a "$BIND_ADDR" --silent)
 else
   die "need python3 or npx to serve. Alternatively open $(pwd)/$PAGE directly."
 fi
@@ -591,15 +624,16 @@ cat <<BANNER
   KATS — KT AI Ticket Support, with the RAG backend live
   ======================================================
   UI          : $URL
-  RAG API     : http://${API_HOST}:${API_PORT}      (Swagger at /docs)
+  RAG API     : http://${PUBLIC_HOST}:${API_PORT}      (Swagger at /docs)
   PostgreSQL  : 127.0.0.1:${PG_PORT}   db ${POSTGRES_DB:-kats_rag}
   Ollama      : ${OLLAMA_URL}$([ "$MODE" = "all" ] && printf '\n  kt-ai-support: http://127.0.0.1:8100  (Swagger at /docs, pg 5434)')
   Logs        : rag-api.log · ollama.log$([ "$MODE" = "all" ] && printf ' · kt-ai.log')
+$([ "$API_BIND" = "0.0.0.0" ] && printf '\n  ! Public host: the page (%s) and the RAG API (%s) listen on all\n    interfaces, and the RAG API has no authentication. Open those two ports\n    in the security group to YOUR IP only. PostgreSQL and Ollama stay local.\n' "$PORT" "$API_PORT")
 
   Turn it on in the browser (once — it is remembered):
     Support view -> "Ask KARL" tab -> Backend card
       1. tick "Use the RAG backend"
-      2. endpoint http://${API_HOST}:${API_PORT}
+      2. endpoint http://${PUBLIC_HOST}:${API_PORT}  (used automatically if left empty)
       3. "Test" should report the models
       4. "Index all local tickets" to load what is already in this browser
 

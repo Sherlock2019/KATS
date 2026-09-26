@@ -6407,7 +6407,16 @@ Expecting `+Qe.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
   'use strict';
 
   const CFG_KEY = 'kt_rag_config_v1';
-  const DEFAULT_ENDPOINT = 'http://127.0.0.1:8001';
+  /* This runs in the visitor's browser, so a hard-coded 127.0.0.1 would point
+   * every remote visitor at their *own* machine. Default to the RAG API on the
+   * host that served this page instead: localhost when served locally, the
+   * public address when served from EC2. Opened from file:// there is no host,
+   * so fall back to loopback. The endpoint remains editable in the Backend card. */
+  const RAG_PORT = 8001;
+  const DEFAULT_ENDPOINT = (global.location && /^https?:$/.test(global.location.protocol)
+    && global.location.hostname)
+    ? global.location.protocol + '//' + global.location.hostname + ':' + RAG_PORT
+    : 'http://127.0.0.1:' + RAG_PORT;
 
   const CONFIG = {
     endpoint: '',
